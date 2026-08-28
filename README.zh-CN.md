@@ -24,6 +24,8 @@ git clone https://github.com/YOUR_USER/novus.git && cd novus
 npm install && npm run build
 ```
 
+> **Windows 用户**：需先安装 [Git for Windows](https://git-scm.com/download/win)——Novus 依赖它提供的 `git` 与 `bash` 命令。装好后在 Git Bash、WSL 或 cmd/PowerShell 中均可运行。
+
 配置 LLM 端点——**任何 Anthropic 协议兼容的 API 都行**：
 
 ```bash
