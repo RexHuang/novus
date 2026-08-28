@@ -43,9 +43,10 @@ export NOVUS_MODEL="claude-sonnet-4-20250514"
 Works out of the box with **Anthropic, DeepSeek, Zhipu GLM, Moonshot Kimi**, OpenRouter, LiteLLM gateways, and local servers.
 
 ```bash
-node dist/cli.js          # interactive chat
-node dist/cli.js -p "fix the failing tests in this repo"
-node dist/cli.js --serve --port 24999   # HTTP API + web UI
+npm link                  # one-time: register the `novus` command globally
+novus                     # interactive chat
+novus -p "fix the failing tests in this repo"
+novus --serve --port 24999   # HTTP API + web UI
 ```
 
 > Already a Claude Code user? You're done — Novus reads your existing `ANTHROPIC_*` environment.

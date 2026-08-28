@@ -43,9 +43,10 @@ export NOVUS_MODEL="claude-sonnet-4-20250514"
 开箱即用：**Anthropic、DeepSeek、智谱 GLM、月之暗面 Kimi**、OpenRouter、LiteLLM 网关、本地推理服务。
 
 ```bash
-node dist/cli.js          # 交互式对话
-node dist/cli.js -p "修复这个仓库里失败的测试"
-node dist/cli.js --serve --port 24999   # HTTP API + Web UI
+npm link                  # 一次性注册全局 novus 命令
+novus                     # 交互式对话
+novus -p "修复这个仓库里失败的测试"
+novus --serve --port 24999   # HTTP API + Web UI
 ```
 
 > 已经在用 Claude Code？什么都不用配——Novus 自动读取你的 `ANTHROPIC_*` 环境变量。
