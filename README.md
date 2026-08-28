@@ -74,9 +74,8 @@ Novus has been my daily driver for **one month of intense use**: 140+ sessions, 
 
 ## Roadmap
 
-- [ ] v1.2 — plugin marketplace & tool sandboxing
-- [ ] v1.3 — multi-agent federation protocol (the phone ↔ servers story, open-sourced)
-- [ ] v1.4 — org-level orchestration (roles, pipelines, debates)
+- [ ] v1.2 — multi-agent federation protocol (the phone ↔ servers story, open-sourced)
+- [ ] v1.3 — org-level orchestration (roles, pipelines, debates)
 
 ## Contributing
 
