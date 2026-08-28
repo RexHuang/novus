@@ -1,5 +1,5 @@
 {
-  "name": "novus",
+  "name": "novus-agent",
   "version": "1.1.0",
   "description": "A self-evolving AI agent that runs anywhere — even on your phone",
   "type": "module",
