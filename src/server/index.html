@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>novus</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('novus_theme')||'dark')}catch(e){}</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;--text:#e4e4ed;--dim:#6e6e82;--accent:#7c6aef;--user:#1a1a2e;--bot:#16161f;--code-bg:rgba(255,255,255,.06);--pre-bg:rgba(0,0,0,.3);--th-bg:rgba(255,255,255,.04);--r:10px}
+:root[data-theme="light"]{--bg:#f4f4f8;--surface:#ffffff;--border:#e2e2ec;--text:#1b1b2a;--dim:#7a7a92;--accent:#6a55f0;--user:#ece9ff;--bot:#ffffff;--code-bg:rgba(0,0,0,.05);--pre-bg:rgba(0,0,0,.04);--th-bg:rgba(0,0,0,.03)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100dvh;display:flex;flex-direction:column}
+input,textarea,button{font-family:inherit;font-size:inherit;color:inherit}
+
+/* Login */
+#login{display:flex;align-items:center;justify-content:center;height:100dvh;flex:1}
+#login .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:32px;width:340px;max-width:90vw}
+#login h2{font-size:20px;margin-bottom:16px;font-weight:600}
+#login input{width:100%;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;outline:none;margin-bottom:12px}
+#login input:focus{border-color:var(--accent)}
+#login button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500}
+#login button:hover{opacity:.85}
+#login .err{color:#ef4444;font-size:13px;margin-top:8px;display:none}
+
+/* App */
+#app{display:none;flex:1;flex-direction:column;overflow:hidden}
+#topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+#topbar .user{font-size:13px;color:var(--dim)}
+#topbar button{background:none;border:1px solid var(--border);padding:4px 12px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--dim)}
+#topbar button:hover{color:var(--text);border-color:var(--dim)}
+
+#chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:80%;padding:10px 14px;border-radius:var(--r);font-size:14px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.msg.user{align-self:flex-end;background:var(--user)}
+.msg.bot{align-self:flex-start;background:var(--bot);border:1px solid var(--border)}
+.msg.bot .think{color:var(--dim);font-size:12px;margin-bottom:6px;border-bottom:1px solid var(--border);padding-bottom:6px}
+.msg code{background:var(--code-bg);padding:1px 5px;border-radius:4px;font-size:13px}
+.msg pre{background:var(--pre-bg);padding:10px;border-radius:8px;overflow-x:auto;margin:8px 0}
+.msg pre code{background:none;padding:0}
+
+#input{display:flex;gap:8px;padding:12px 16px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+#input textarea{flex:1;resize:none;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;outline:none;max-height:120px;line-height:1.5}
+#input textarea:focus{border-color:var(--accent)}
+#input button{width:40px;height:40px;background:var(--accent);border:none;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#input button:hover{opacity:.85}
+#input button:disabled{opacity:.4;cursor:not-allowed}
+
+.typing::after{content:'...';animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Markdown light */
+.msg b,.msg strong{font-weight:600}
+.msg a{color:var(--accent)}
+.msg ul,.msg ol{padding-left:20px;margin:4px 0}
+.msg blockquote{border-left:3px solid var(--accent);padding-left:10px;color:var(--dim);margin:6px 0}
+.msg hr{border:none;border-top:1px solid var(--border);margin:8px 0}
+.msg table{border-collapse:collapse;margin:8px 0;font-size:13px}
+.msg th,.msg td{border:1px solid var(--border);padding:4px 10px}
+.msg th{background:var(--th-bg)}
+
+/* Tool status bar */
+.tool-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;margin:4px 0;background:rgba(124,106,239,.08);border:1px solid rgba(124,106,239,.15);border-radius:6px;font-size:12px;color:var(--dim)}
+.tool-bar .icon{opacity:.7}
+.tool-bar .name{color:var(--text);font-weight:500}
+.tool-bar .time{margin-left:auto;font-variant-numeric:tabular-nums}
+.tool-bar.running .icon{animation:spin 1s linear infinite}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* File panel */
+#file-panel{display:none;flex:1;flex-direction:column;overflow-y:auto;padding:16px}
+#file-panel.active{display:flex}
+#upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;margin-bottom:16px;flex-shrink:0}
+#upload-zone:hover,.drag-over{border-color:var(--accent)!important;background:rgba(124,106,239,.05)}
+#upload-zone input{display:none}
+#upload-zone .dz{font-size:32px;margin-bottom:6px}
+#upload-zone .dz-hint{font-size:13px;color:var(--dim)}
+#storage-bar{margin-bottom:16px;flex-shrink:0}
+#storage-bar .lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:4px}
+#storage-bar .bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+#storage-bar .bar .fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+#storage-bar .bar .fill.warn{background:#f59e0b}
+#storage-bar .bar .fill.danger{background:#ef4444}
+#file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.file-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;transition:border-color .15s}
+.file-card:hover{border-color:var(--accent)}
+.file-card .thumb{aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:var(--bg);overflow:hidden;cursor:pointer}
+.file-card .thumb img{max-width:100%;max-height:100%;object-fit:contain}
+.file-card .thumb .file-icon{font-size:36px;opacity:.4}
+.file-card .info{padding:8px 10px;flex:1}
+.file-card .info .fn{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.file-card .info .fs{font-size:11px;color:var(--dim)}
+.file-card .actions{display:flex;gap:4px;padding:0 8px 8px}
+.file-card .actions button{flex:1;padding:5px 0;font-size:11px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--dim);cursor:pointer}
+.file-card .actions button:hover{color:var(--text);border-color:var(--accent)}
+.file-card .actions button.danger:hover{color:#ef4444;border-color:#ef4444}
+.file-card .actions button.copied{color:#22c55e!important;border-color:#22c55e!important}
+/* Tab bar */
+#tab-bar{display:flex;gap:2px}
+#tab-bar button{padding:4px 14px;font-size:13px;border:1px solid var(--border);border-radius:6px;background:none;color:var(--dim);cursor:pointer;transition:all .15s}
+#tab-bar button:hover{color:var(--text)}
+#tab-bar button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Image preview overlay */
+#img-preview{display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.92);flex-direction:column;align-items:center;justify-content:center}
+#img-preview.show{display:flex}
+#img-preview img{max-width:95vw;max-height:85vh;object-fit:contain;border-radius:8px}
+#img-preview .pv-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#img-preview .pv-close:hover{background:rgba(255,255,255,.25)}
+#img-preview .pv-info{color:var(--dim);font-size:12px;margin-top:12px}
+
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="card">
+    <h2>🔑 novus</h2>
+    <input id="token-input" type="password" placeholder="输入 Token" autocomplete="off">
+    <button id="login-btn">登录</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <span class="user" id="user-info"></span>
+    <div id="tab-bar">
+      <button class="active" data-tab="chat">💬 对话</button>
+      <button data-tab="files">📁 文件</button>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="clear-btn" title="清空对话历史">🗑 清空</button>
+      <button id="theme-btn" title="切换深浅色">🌙</button>
+      <button id="logout-btn">登出</button>
+    </div>
+  </div>
+  <div id="chat"></div>
+  <div id="input">
+    <textarea id="msg-input" rows="1" placeholder="输入消息..."></textarea>
+    <button id="send-btn">➤</button>
+  </div>
+  <div id="file-panel">
+    <div id="storage-bar">
+      <div class="lbl"><span>存储用量</span><span id="storage-text">0 / 100 MB</span></div>
+      <div class="bar"><div class="fill" id="storage-fill" style="width:0%"></div></div>
+    </div>
+    <div id="upload-zone">
+      <div class="dz">📤</div>
+      <div class="dz-hint">点击或拖拽上传图片（jpg/png/gif/webp/svg）</div>
+      <input type="file" id="file-input" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml" multiple>
+    </div>
+    <div id="file-grid"></div>
+  </div>
+  <div id="img-preview" onclick="this.classList.remove('show')">
+    <button class="pv-close" onclick="document.getElementById('img-preview').classList.remove('show')">✕</button>
+    <img id="img-preview-img" src="" alt="">
+    <div class="pv-info" id="img-preview-name"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+  var token = '', tenantId = '', streaming = false;
+  var currentSessionId = null;  // 持续对话的 session ID
+  var abortController = null;  // 用于中断当前请求
+  var stopTimer = null;       // 1秒后切换按钮的定时器
+
+  function showLogin(err){
+    $('login').style.display = 'flex';
+    $('app').style.display = 'none';
+    if(err){
+      var e = $('login-err');
+      e.textContent = err;
+      e.style.display = 'block';
+    }
+  }
+
+  function showApp(){
+    $('login').style.display = 'none';
+    $('app').style.display = 'flex';
+  }
+
+  function doLogin(silent){
+    token = $('token-input').value.trim();
+    if(!token) return showLogin('请输入 Token');
+    fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token: token})
+    }).then(function(r){
+      if(!r.ok) return r.json().then(function(d){ showLogin(d.error || '登录失败'); });
+      return r.json().then(function(d){
+        tenantId = d.tenant.id;
+        localStorage.setItem('novus_token', token);
+        $('user-info').textContent = d.isAdmin ? 'Admin' : '👤 ' + d.tenant.name;
+        showApp();
+        if(!restoreChat()){
+          $('chat').innerHTML = '<div class="msg bot">你好，有什么可以帮你的？</div>';
+        }
+      });
+    }).catch(function(e){
+      if(!silent) showLogin('网络错误');
+    });
+  }
+
+  function doLogout(){
+    localStorage.removeItem('novus_token');
+    token = ''; tenantId = '';
+    $('chat').innerHTML = '';
+    showLogin();
+  }
+
+  function resetBtn(){
+    clearTimeout(stopTimer);
+    streaming = false;
+    abortController = null;
+    $('send-btn').textContent = '➤';
+    $('send-btn').title = '发送';
+    $('send-btn').disabled = false;
+  }
+
+  // 发送/中止按钮
+  $('send-btn').addEventListener('click', function(){
+    if(streaming && abortController){
+      abortController.abort();
+      resetBtn();
+    } else {
+      doSend();
+    }
+  });
+
+  function handleKey(e){
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); doSend(); }
+  }
+
+  function doSend(){
+    if(streaming) return;
+    var input = $('msg-input');
+    var msg = input.value.trim();
+    if(!msg) return;
+    input.value = '';
+    input.style.height = 'auto';
+    autoResize(input);
+    appendMsg('user', msg);
+    streaming = true;
+    $('send-btn').disabled = true;
+    abortController = new AbortController();
+
+    // 1秒后按钮变为中止按钮
+    stopTimer = setTimeout(function(){
+      if(!streaming) return;
+      $('send-btn').textContent = '\u25A0';
+      $('send-btn').title = '\u4e2d\u6b62\u751f\u6210';
+      $('send-btn').disabled = false;
+    }, 1000);
+
+    // Create bot message container with placeholder
+    var botDiv = appendMsg('bot', '<span class="typing">思考中</span>');
+    var fullText = '';       // accumulated AI text
+    var thinkHtml = '';      // thinking content
+    var toolsHtml = '';      // tool status bars
+    var activeTools = {};   // toolCallId → {name, startTime}
+    var lastRender = 0;     // throttle rendering
+
+    function scheduleRender(){
+      var now = Date.now();
+      if(now - lastRender < 60){ setTimeout(render, 60 - (now - lastRender)); return; }
+      render();
+    }
+
+    function render(){
+      lastRender = Date.now();
+      // Update active tool timers
+      for(var id in activeTools){
+        var t = activeTools[id];
+        var el = botDiv.querySelector('[data-tool-id="' + id + '"] .time');
+        if(el) el.textContent = ((Date.now() - t.start) / 1000).toFixed(1) + 's';
+      }
+      // Build innerHTML
+      var html = '';
+      if(thinkHtml) html += '<div class="think">💭 ' + thinkHtml + '</div>';
+      if(toolsHtml) html += toolsHtml;
+      if(fullText) html += renderMd(fullText);
+      else if(!thinkHtml && !toolsHtml) html = '<span class="typing">思考中</span>';
+      botDiv.innerHTML = html;
+      scrollToBottom();
+    }
+
+    fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+      body: JSON.stringify({prompt: msg, sessionId: currentSessionId || undefined}),
+      signal: abortController.signal
+    }).then(function(r){
+      if(r.status === 401){ doLogout(); showLogin('Token 已失效'); return; }
+      if(!r.ok){ botDiv.innerHTML = '<em>请求失败</em>'; resetBtn(); saveChat(); return; }
+
+      var reader = r.body.getReader();
+      var dec = new TextDecoder();
+      var sseBuf = '';  // incomplete SSE frame
+      var currentEvent = 'message';  // default event type
+      var toolTimer;
+
+      // Keep updating tool timers while streaming
+      toolTimer = setInterval(function(){
+        if(Object.keys(activeTools).length > 0) scheduleRender();
+      }, 200);
+
+      function pump(){
+        reader.read().then(function(result){
+          if(result.done){
+            clearInterval(toolTimer);
+            // Final render
+            for(var id in activeTools){
+              var t = activeTools[id];
+              var el = botDiv.querySelector('[data-tool-id="' + id + '"]');
+              if(el){
+                el.classList.remove('running');
+                el.querySelector('.time').textContent = ((Date.now() - t.start) / 1000).toFixed(1) + 's';
+              }
+            }
+            render();
+            resetBtn();
+            saveChat();
+            return;
+          }
+          sseBuf += dec.decode(result.value, {stream: true});
+          // Parse SSE frames: split on double-newline boundaries
+          var parts = sseBuf.split('\n\n');
+          // Last element is always incomplete (no trailing \n\n yet)
+          sseBuf = parts.pop();
+          for(var i = 0; i < parts.length; i++){
+            var frame = parts[i].trim();
+            if(!frame) continue;
+            var evtType = 'message';
+            var dataStr = '';
+            var lines = frame.split('\n');
+            for(var j = 0; j < lines.length; j++){
+              var ln = lines[j];
+              if(ln.indexOf('event: ') === 0){ evtType = ln.substring(7); }
+              else if(ln.indexOf('data: ') === 0){
+                // Support multi-line data: append with newline
+                if(dataStr) dataStr += '\n';
+                dataStr += ln.substring(6);
+              }
+            }
+            if(!dataStr) continue;
+            try{ handleEvent(evtType, JSON.parse(dataStr)); }catch(ex){
+              console.warn('[SSE] parse error:', ex, 'data:', dataStr.slice(0,80));
+            }
+          }
+          pump();
+        }).catch(function(){
+          clearInterval(toolTimer);
+          if(!abortController.signal.aborted) botDiv.innerHTML = '<em>连接中断</em>';
+          resetBtn();
+          saveChat();
+        });
+      }
+
+      function handleEvent(type, d){
+        switch(type){
+          case 'text_delta':
+            fullText += d.delta || '';
+            scheduleRender();
+            break;
+          case 'thinking':
+            thinkHtml = $esc((d.thinking || '').slice(0, 200));
+            scheduleRender();
+            break;
+          case 'tool_start':
+            activeTools[d.toolCallId] = {name: d.toolName, start: Date.now()};
+            toolsHtml += '<div class="tool-bar running" data-tool-id="' + d.toolCallId + '"><span class="icon">⚙️</span><span class="name">' + $esc(d.toolName) + '</span><span class="time">0.0s</span></div>';
+            scheduleRender();
+            break;
+          case 'tool_end':
+            var ended = activeTools[d.toolCallId];
+            if(ended){
+              delete activeTools[d.toolCallId];
+              var el = botDiv.querySelector('[data-tool-id="' + d.toolCallId + '"]');
+              if(el){
+                el.classList.remove('running');
+                el.querySelector('.icon').textContent = '✅';
+                el.querySelector('.time').textContent = (d.duration || 0).toFixed(1) + 's';
+              }
+            }
+            break;
+          case 'tool_error':
+            delete activeTools[d.toolCallId];
+            var el2 = botDiv.querySelector('[data-tool-id="' + d.toolCallId + '"]');
+            if(el2){
+              el2.classList.remove('running');
+              el2.querySelector('.icon').textContent = '❌';
+              el2.style.borderColor = 'rgba(239,68,68,.3)';
+              el2.style.background = 'rgba(239,68,68,.06)';
+            }
+            break;
+          case 'message_start':
+            thinkHtml = ''; // clear thinking indicator
+            break;
+          case 'message_end':
+            break;
+          case 'error':
+            console.warn('[SSE error]', d.message);
+            if(fullText || toolsHtml){
+              botDiv.innerHTML += '<div style="color:#ef4444;margin-top:6px">⚠️ ' + $esc(d.message || '未知错误') + '</div>';
+            } else {
+              botDiv.innerHTML = '<em style="color:#ef4444">错误: ' + $esc(d.message || '未知错误') + '</em>';
+            }
+            break;
+          case 'done':
+            // Stream finished — 记住 sessionId 以维持上下文
+            if(d.sessionId && d.sessionId !== currentSessionId){
+              currentSessionId = d.sessionId;
+            }
+            break;
+        }
+      }
+
+      pump();
+    }).catch(function(){
+      if(!abortController.signal.aborted) botDiv.innerHTML = '<em>连接中断</em>';
+      resetBtn();
+      saveChat();
+    });
+  }
+
+  function appendMsg(role, html){
+    var div = document.createElement('div');
+    div.className = 'msg ' + role;
+    div.innerHTML = html;
+    $('chat').appendChild(div);
+    scrollToBottom();
+    saveChat();
+    return div;
+  }
+
+  // ── Chat history (local persistence) ───────────────────
+  function chatKey(){ return 'novus_chat_' + (tenantId || 'default'); }
+  function saveChat(){
+    try { localStorage.setItem(chatKey(), $('chat').innerHTML); } catch(e){}
+  }
+  function restoreChat(){
+    try {
+      var h = localStorage.getItem(chatKey());
+      if(h){ $('chat').innerHTML = h; scrollToBottom(); return true; }
+    } catch(e){}
+    return false;
+  }
+
+  function scrollToBottom(){
+    var c = $('chat');
+    c.scrollTop = c.scrollHeight;
+  }
+
+  function autoResize(el){
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function renderMd(s){
+    if(!s) return '';
+    return s
+      .replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code){ return '<pre><code>' + $esc(code.trimEnd()) + '</code></pre>'; })
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^### (.+)/gm, '<strong style="font-size:15px">$1</strong>')
+      .replace(/^## (.+)/gm, '<strong style="font-size:16px">$1</strong>')
+      .replace(/^# (.+)/gm, '<strong style="font-size:18px">$1</strong>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+      .replace(/^[-*] (.+)/gm, '• $1')
+      .replace(/^\d+\. (.+)/gm, '  $1')
+      .replace(/^> (.+)/gm, '<blockquote>$1</blockquote>')
+      .replace(/^---$/gm, '<hr>')
+      .replace(/\n/g, '<br>');
+  }
+
+  function $esc(s){
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Bind events
+  $('login-btn').addEventListener('click', function(){ doLogin(); });
+  $('logout-btn').addEventListener('click', doLogout);
+
+  // ── Theme toggle ───────────────────────────────────────
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    $('theme-btn').textContent = theme === 'light' ? '☀️' : '🌙';
+    localStorage.setItem('novus_theme', theme);
+  }
+  $('theme-btn').addEventListener('click', function(){
+    var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    applyTheme(cur === 'light' ? 'dark' : 'light');
+  });
+  // Init icon to match current theme
+  $('theme-btn').textContent = document.documentElement.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+
+  // ── Clear chat history ─────────────────────────────────
+  $('clear-btn').addEventListener('click', function(){
+    if(!confirm('确定清空当前对话历史？此操作不可恢复。')) return;
+    $('chat').innerHTML = '<div class="msg bot">你好，有什么可以帮你的？</div>';
+    currentSessionId = null;
+    saveChat();
+  });
+
+  $('msg-input').addEventListener('keydown', handleKey);
+  $('msg-input').addEventListener('input', function(){ autoResize($('msg-input')); });
+
+  // ── Tab switching ──────────────────────────────────────
+  function switchTab(tab){
+    var chat = $('chat'), input = $('input'), fp = $('file-panel');
+    var tabs = $('tab-bar').querySelectorAll('button');
+    for(var i=0;i<tabs.length;i++){ tabs[i].classList.remove('active'); }
+    if(tab === 'files'){
+      chat.style.display = 'none'; input.style.display = 'none';
+      fp.classList.add('active');
+      tabs[1].classList.add('active');
+      loadFiles();
+    } else {
+      chat.style.display = ''; input.style.display = '';
+      fp.classList.remove('active');
+      tabs[0].classList.add('active');
+    }
+  }
+  $('tab-bar').addEventListener('click', function(e){
+    if(e.target.tagName === 'BUTTON') switchTab(e.target.dataset.tab);
+  });
+
+  // ── File management ────────────────────────────────────
+  function loadFiles(){
+    fetch('/api/files', {headers:{'Authorization':'Bearer '+token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        renderStorage(d.usage);
+        renderFileGrid(d.files);
+      });
+  }
+
+  function renderStorage(u){
+    var pct = u.maxMB > 0 ? (u.mb / u.maxMB * 100) : 0;
+    var fill = $('storage-fill');
+    fill.style.width = Math.min(pct,100) + '%';
+    fill.className = 'fill' + (pct > 80 ? ' danger' : pct > 60 ? ' warn' : '');
+    $('storage-text').textContent = u.mb.toFixed(1) + ' / ' + u.maxMB + ' MB';
+  }
+
+  function renderFileGrid(files){
+    var grid = $('file-grid');
+    if(!files.length){ grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--dim);padding:40px;font-size:14px">暂无文件，上传第一张图片吧</div>'; return; }
+    var html = '';
+    for(var i=0;i<files.length;i++){
+      var f = files[i];
+      var isImg = f.type && f.type.indexOf('image/') === 0;
+      var ext = (f.name||'').split('.').pop().toLowerCase();
+      var thumbHtml = isImg
+        ? '<img src="' + f.url + '?token=' + encodeURIComponent(token) + '" alt="' + $esc(f.name) + '" loading="lazy">'
+        : '<div class="file-icon">📄</div>';
+      html += '<div class="file-card" data-id="' + f.id + '">'
+        + '<div class="thumb" data-url="' + f.url + '" data-name="' + $esc(f.name) + '">' + thumbHtml + '</div>'
+        + '<div class="info"><div class="fn" title="' + $esc(f.name) + '">' + $esc(f.name) + '</div><div class="fs">' + fmtSize(f.size) + '</div></div>'
+        + '<div class="actions">'
+        + '<button class="copy-btn" data-name="' + $esc(f.name) + '">📋 复制</button>'
+        + '<button class="danger del-btn" data-id="' + f.id + '">🗑 删除</button>'
+        + '</div></div>';
+    }
+    grid.innerHTML = html;
+  }
+
+  function fmtSize(b){
+    if(b < 1024) return b + ' B';
+    if(b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  }
+
+  // Upload: click
+  $('upload-zone').addEventListener('click', function(){ $('file-input').click(); });
+  $('file-input').addEventListener('change', function(){
+    var files = this.files;
+    for(var i=0;i<files.length;i++){ uploadFile(files[i]); }
+    this.value = '';
+  });
+
+  // Upload: drag & drop
+  (function(){
+    var zone = $('upload-zone');
+    zone.addEventListener('dragover', function(e){ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', function(){ zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', function(e){
+      e.preventDefault(); zone.classList.remove('drag-over');
+      var files = e.dataTransfer.files;
+      for(var i=0;i<files.length;i++){ uploadFile(files[i]); }
+    });
+  })();
+
+  function uploadFile(file){
+    var zone = $('upload-zone');
+    zone.querySelector('.dz').textContent = '⏳';
+    zone.querySelector('.dz-hint').textContent = '上传中: ' + file.name;
+    var fd = new FormData();
+    fd.append('file', file);
+    fetch('/api/upload', {method:'POST',headers:{'Authorization':'Bearer '+token},body:fd})
+      .then(function(r){ return r.json().then(function(d){ return r.ok ? d : Promise.reject(d); }); })
+      .then(function(){ loadFiles(); })
+      .catch(function(e){ alert('上传失败: ' + (e.error || e.message || '未知错误')); })
+      .finally(function(){
+        zone.querySelector('.dz').textContent = '📤';
+        zone.querySelector('.dz-hint').textContent = '点击或拖拽上传图片（jpg/png/gif/webp/svg）';
+      });
+  }
+
+  // Copy + Delete (event delegation)
+  $('file-grid').addEventListener('click', function(e){
+    var t = e.target;
+    // Copy
+    if(t.classList.contains('copy-btn')){
+      var text = t.dataset.name;
+      var done = function(){
+        t.textContent = '✅ 已复制';
+        t.classList.add('copied');
+        setTimeout(function(){ t.textContent = '📋 复制'; t.classList.remove('copied'); }, 1500);
+      };
+      // Try modern clipboard API first (requires HTTPS/localhost)
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done).catch(function(){
+          // Fallback to execCommand for WeChat and old browsers
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed';
+          ta.style.left = '-9999px';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); done(); } catch(e){}
+          document.body.removeChild(ta);
+        });
+      } else {
+        // Clipboard API not available, use execCommand directly
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch(e){}
+        document.body.removeChild(ta);
+      }
+      return;
+    }
+    // Delete
+    if(t.classList.contains('del-btn')){
+      if(!confirm('确定删除此文件？')) return;
+      var fid = t.dataset.id;
+      fetch('/api/files/' + fid, {method:'DELETE',headers:{'Authorization':'Bearer '+token}})
+        .then(function(r){ return r.json(); })
+        .then(function(){ loadFiles(); });
+      return;
+    }
+    // Thumbnail preview — inline overlay, works everywhere including WeChat
+    if(t.classList.contains('thumb') || t.closest('.thumb')){
+      var thumb = t.closest('.thumb') || t;
+      var burl = thumb.dataset.url;
+      if(burl){
+        var previewUrl = burl + '?token=' + encodeURIComponent(token);
+        $('img-preview-img').src = previewUrl;
+        $('img-preview-name').textContent = thumb.dataset.name || '';
+        $('img-preview').classList.add('show');
+      }
+    }
+  });
+
+  // Auto-login from localStorage
+  var saved = localStorage.getItem('novus_token');
+  if(saved){
+    $('token-input').value = saved;
+    doLogin(true);
+  }
+})();
+</script>
+</body>
+</html>

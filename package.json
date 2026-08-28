@@ -1,0 +1,73 @@
+{
+  "name": "novus",
+  "version": "1.1.0",
+  "description": "A self-evolving AI agent that runs anywhere — even on your phone",
+  "type": "module",
+  "bin": {
+    "novus": "dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "clean": "shx rm -rf dist",
+    "build": "shx rm -rf dist && tsc -p tsconfig.build.json && shx chmod +x dist/cli.js && shx rm -rf dist/server/public && shx mkdir -p dist/server/public && shx cp -r src/server/public/* dist/server/public/",
+    "dev": "tsgo --watch -p tsconfig.build.json",
+    "test": "vitest --run",
+    "start": "node dist/cli.js",
+    "serve": "node dist/cli.js --serve",
+    "prepublishOnly": "npm run clean && npm run build && npm run test",
+    "pack": "npm pack"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "^0.82.0",
+    "@earendil-works/pi-ai": "^0.82.0",
+    "@earendil-works/pi-coding-agent": "^0.82.0",
+    "better-sqlite3": "^13.0.3",
+    "ws": "^8.21.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@types/ws": "^8.18.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260120.1",
+    "shx": "^0.4.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.0.0"
+  },
+  "keywords": [
+    "coding-agent",
+    "ai",
+    "llm",
+    "cli",
+    "self-evolving",
+    "autonomous",
+    "agent",
+    "claude",
+    "anthropic",
+    "meta-cognition",
+    "web-ui",
+    "http-server",
+    "serve-mode"
+  ],
+  "author": "Mario Zechner",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sudoroot/novus.git"
+  },
+  "homepage": "https://github.com/sudoroot/novus#readme",
+  "bugs": {
+    "url": "https://github.com/sudoroot/novus/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.62.1"
+  }
+}
