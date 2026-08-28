@@ -81,6 +81,8 @@ Novus did not start as an architecture diagram. It started as a seed — a minim
 
 Every feature here exists because the agent using it demanded it. The maintainer's job was mostly to say yes.
 
+You'll notice there's no plugin marketplace and no "skills" framework. That's deliberate, not an oversight. A plugin system is how you add capabilities to a system that can't grow its own — and this one grows its own. A tree grown from a seed has no seams; an assembly of parts does. Plugins may still come someday, when a capability genuinely can't be grown. So far, none has.
+
 ## Philosophy
 
 1. **The agent is the product, not the app.** No chrome, no Electron — a REPL and an HTTP server.
