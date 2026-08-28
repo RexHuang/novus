@@ -4,7 +4,7 @@
 
 The essence of a self-evolving AI agent in ~15K lines of TypeScript.
 
-**Before this release:** Novus ran as an internal system for 3 months, maintaining a 3-node deployment (phone ↔ cloud VM ↔ overseas VPS), shipping daily news digests, and self-healing its own infrastructure. v1.1.0 is that same core, cleaned and open-sourced.
+**Before this release:** Novus ran as an internal system for one month of intense daily use (140+ sessions), maintaining a 3-node deployment (phone ↔ cloud VM ↔ overseas VPS), shipping daily news digests, and self-healing its own infrastructure. v1.1.0 is that same core, cleaned and open-sourced.
 
 ### Core
 - Agent loop on pi-agent-core: tool calling, streaming, multi-turn sessions

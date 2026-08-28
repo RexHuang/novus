@@ -61,7 +61,7 @@ node dist/cli.js --serve --port 24999   # HTTP API + web UI
 
 ## Not a demo — it runs my infrastructure
 
-Novus has been my daily driver for **3 months**: it maintains a 3-node deployment (phone ↔ cloud VM ↔ overseas VPS) that self-heals, ships daily news digests, and publishes articles. The agent wrote parts of its own release tooling. This README's narrative was drafted by Novus itself.
+Novus has been my daily driver for **one month of intense use**: 140+ sessions, 560 knowledge entries accumulated. It maintains a 3-node deployment (phone ↔ cloud VM ↔ overseas VPS) that self-heals, ships daily news digests, and publishes articles. The agent wrote parts of its own release tooling. This README's narrative was drafted by Novus itself.
 
 *The multi-node federation layer is not open-sourced (yet) — see [Roadmap](#roadmap).*
 
