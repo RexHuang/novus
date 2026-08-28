@@ -69,6 +69,18 @@ Novus has been my daily driver for **one month of intense use**: 140+ sessions, 
 
 *The multi-node federation layer is not open-sourced (yet) — see [Roadmap](#roadmap).*
 
+## Grown, not built
+
+Novus did not start as an architecture diagram. It started as a seed — a minimal agent loop — and every capability you see was grown in response to a real problem the agent hit the day before:
+
+- **Memory** grew because sessions kept forgetting things worth keeping — a fact learned on Monday shouldn't be re-learned on Friday. It now carries 560 entries across sessions.
+- **Context management** grew because windows overflow — sessions now compress, checkpoint, and restore themselves.
+- **Web access** grew because an agent sealed off from the internet cannot perceive the world.
+- **26 custom tools** grew one at a time — each one an answer to yesterday's friction, not a line-item in a design doc.
+- **Behavior reflection** grew because the same mistake kept repeating — Novus now watches its own patterns (over-tool-calling, redundant calls) and corrects them.
+
+Every feature here exists because the agent using it demanded it. The maintainer's job was mostly to say yes.
+
 ## Philosophy
 
 1. **The agent is the product, not the app.** No chrome, no Electron — a REPL and an HTTP server.
