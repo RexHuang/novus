@@ -662,7 +662,7 @@ export interface BrowserFetchOptions {
  * Requires a running Chrome/Chromium instance with `--remote-debugging-port`,
  * or set CHROME_WS_ENDPOINT env var to the WebSocket URL.
  *
- * Example: CHROME_WS_ENDPOINT=ws://192.168.1.100:9222/devtools/browser/xxx
+ * Example: CHROME_WS_ENDPOINT=ws://192.0.2.100:9222/devtools/browser/xxx
  */
 export async function fetchBrowser(options: BrowserFetchOptions): Promise<FetchResult> {
 	const {
@@ -706,7 +706,7 @@ export async function fetchBrowser(options: BrowserFetchOptions): Promise<FetchR
 		text: "Browser mode unavailable on this platform.\n" +
 			"Options:\n" +
 			"1. Set CHROME_WS_ENDPOINT to a remote Chrome CDP WebSocket URL\n" +
-			"   e.g. export CHROME_WS_ENDPOINT=ws://192.168.1.100:9222/devtools/browser/xxx\n" +
+			"   e.g. export CHROME_WS_ENDPOINT=ws://192.0.2.100:9222/devtools/browser/xxx\n" +
 			"2. Install Playwright: npm install playwright && npx playwright install chromium",
 		headers: {},
 		finalUrl: url,

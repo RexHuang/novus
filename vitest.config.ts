@@ -7,5 +7,6 @@ export default defineConfig({
       "**/node_modules/**",
       "**/dist/**",
     ],
+    testTimeout: 30_000, // dynamic tool loading can be slow on low-power devices (e.g. phones)
   },
 });
