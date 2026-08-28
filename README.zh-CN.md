@@ -24,6 +24,8 @@ git clone https://github.com/YOUR_USER/novus.git && cd novus
 npm install && npm run build
 ```
 
+> **安卓用户**：先从 [F-Droid](https://f-droid.org/en/packages/com.termux/) 安装 Termux——Play 商店版已停止维护，无法使用。然后 `pkg install nodejs git`，下面所有命令原样可用。
+
 > **Windows 用户**：需先安装 [Git for Windows](https://git-scm.com/download/win)——Novus 依赖它提供的 `git` 与 `bash` 命令。装好后在 Git Bash、WSL 或 cmd/PowerShell 中均可运行。
 
 配置 LLM 端点——**任何 Anthropic 协议兼容的 API 都行**：
