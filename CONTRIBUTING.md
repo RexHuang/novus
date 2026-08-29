@@ -50,3 +50,10 @@ It auto-registers at startup. No config, no manifest.
 ## Reporting bugs
 
 Include: the tool trace (the agent prints tool calls), Node version, OS, and whether you're on Termux/Android.
+
+## License & Contributions
+
+By submitting a pull request, you agree that your contributions are licensed
+under the Apache License 2.0, and that the project maintainer retains the
+right to relicense future versions (including dual-licensing). This keeps
+the project flexible long-term while all published versions remain open.
