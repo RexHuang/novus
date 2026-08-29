@@ -24,7 +24,7 @@ git clone https://github.com/YOUR_USER/novus.git && cd novus
 npm install && npm run build
 ```
 
-> **Android**: install [Termux from F-Droid](https://f-droid.org/en/packages/com.termux/) first — the Play Store build is outdated and won't work. Then `pkg install nodejs git`, and everything below works as-is.
+> **Android**: install [Termux from F-Droid](https://f-droid.org/en/packages/com.termux/) first — the Play Store build is outdated and won't work. Then `pkg install nodejs-lts git python make clang` (the native module needs a small toolchain), and everything below works as-is. Step-by-step guide: [MOBILE.md](MOBILE.md).
 
 > **Windows**: install [Git for Windows](https://git-scm.com/download/win) first — it provides the `git` and `bash` commands Novus shells out to. Run from Git Bash, WSL, or plain cmd/PowerShell once it's installed.
 
