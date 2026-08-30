@@ -17,6 +17,20 @@ Claude Code taught the world what agent loops look like. Novus asks the other qu
 
 No bundling of heavyweight SDKs, no vendor lock-in. Just the loop: *perceive → think → act → remember → evolve*.
 
+## It evolves itself — for real
+
+Not "self-improving" as a marketing word. The loop is concrete — and it ran, end to end, on the day this README was being written:
+
+- **Reads and rewrites its own source code** — that day, the agent found 4 bugs in its own federation registry (a hardcoded version string, a node type it couldn't recognize, a zombie entry that refused to die, and a liveness probe that lied), patched its own TypeScript, rebuilt, and shipped the fix to every machine it runs on
+- **Deploys its own updates** across the fleet — phone → cloud VM → overseas VPS, over SSH and WebSocket
+- **Keeps lessons across sessions** — a persistent knowledge store, not a context window that resets. A fix found once is a lesson stored; the same mistake can't repeat
+- **Watches its own habits** — 10 behavioral patterns identified (over-calling tools, redundant searches…), 7 already corrected by self-imposed rules that now gate its own tool calls
+- **Logs every evolution** — 15 so far, each recording what changed and why
+
+Bug → self-diagnosis → self-patch → self-deploy → lesson stored. No human typed a line of that fix. The maintainer watched it happen, then updated this README.
+
+*(The federation layer itself ships in v1.2 — see [Roadmap](#roadmap).)*
+
 ## Quickstart (5 minutes)
 
 ```bash
