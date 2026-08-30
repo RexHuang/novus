@@ -63,9 +63,9 @@
     "type": "git",
     "url": "git+https://github.com/RexHuang/novus.git"
   },
-  "homepage": "https://github.com/sudoroot/novus#readme",
+  "homepage": "https://github.com/RexHuang/novus#readme",
   "bugs": {
-    "url": "https://github.com/sudoroot/novus/issues"
+    "url": "https://github.com/RexHuang/novus/issues"
   },
   "engines": {
     "node": ">=22.19.0"
