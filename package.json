@@ -55,10 +55,10 @@
     "serve-mode"
   ],
   "author": "Mario Zechner",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sudoroot/novus.git"
+    "url": "git+https://github.com/RexHuang/novus.git"
   },
   "homepage": "https://github.com/sudoroot/novus#readme",
   "bugs": {
