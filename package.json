@@ -54,7 +54,10 @@
     "http-server",
     "serve-mode"
   ],
-  "author": "Mario Zechner",
+  "author": "RexHuang",
+  "contributors": [
+    "Mario Zechner (pi-agent-core)"
+  ],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
