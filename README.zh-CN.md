@@ -34,7 +34,7 @@ Bug → 自我诊断 → 自我修补 → 自我部署 → 教训入库。全程
 ## 五分钟上手
 
 ```bash
-git clone https://github.com/YOUR_USER/novus.git && cd novus
+git clone https://github.com/RexHuang/novus.git && cd novus
 npm install && npm run build
 ```
 

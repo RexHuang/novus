@@ -23,7 +23,7 @@ Why `python make clang`? Novus depends on `better-sqlite3`, a native module that
 Same flow as any platform — that's the point:
 
 ```bash
-git clone https://github.com/YOUR_USER/novus.git
+git clone https://github.com/RexHuang/novus.git
 cd novus
 npm install && npm run build
 npm link        # one-time: registers the `novus` command

@@ -23,7 +23,7 @@ pkg install nodejs-lts git python make clang
 和任何平台完全一样的流程 —— 这正是重点：
 
 ```bash
-git clone https://github.com/YOUR_USER/novus.git
+git clone https://github.com/RexHuang/novus.git
 cd novus
 npm install && npm run build
 npm link        # 一次性操作：注册全局 `novus` 命令

@@ -34,7 +34,7 @@ Bug → self-diagnosis → self-patch → self-deploy → lesson stored. No huma
 ## Quickstart (5 minutes)
 
 ```bash
-git clone https://github.com/YOUR_USER/novus.git && cd novus
+git clone https://github.com/RexHuang/novus.git && cd novus
 npm install && npm run build
 ```
 
