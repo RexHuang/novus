@@ -56,6 +56,12 @@ export NOVUS_MODEL="claude-sonnet-4-20250514"
 
 开箱即用：**Anthropic、DeepSeek、智谱 GLM、月之暗面 Kimi**、OpenRouter、LiteLLM 网关、本地推理服务。
 
+### 关于图片
+
+- **看图**：用 `read` 读任意 jpg/png/gif/webp/bmp 文件，会作为图像块发给模型——前提是 `NOVUS_MODEL` 是多模态模型（如 Claude Sonnet）。纯文本模型会静默忽略图片。
+- **处理图片**（缩放、转格式、加水印）：任何模型都可——agent 自己写脚本完成。
+- **生成图片**：未内置；写一个 custom tool（在 `src/tools/custom/` 放一个调用任意图像 API 的 `.ts`）即可接入。
+
 ```bash
 npm link                  # 一次性注册全局 novus 命令
 novus                     # 交互式对话

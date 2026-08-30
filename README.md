@@ -56,6 +56,12 @@ export NOVUS_MODEL="claude-sonnet-4-20250514"
 
 Works out of the box with **Anthropic, DeepSeek, Zhipu GLM, Moonshot Kimi**, OpenRouter, LiteLLM gateways, and local servers.
 
+### About images
+
+- **Seeing images**: `read` any jpg/png/gif/webp/bmp file and it is sent to the model as an image block — provided your `NOVUS_MODEL` is multimodal (e.g. Claude Sonnet). Pure-text models will silently ignore images.
+- **Manipulating images** (resize, convert, watermark) works with any model — the agent writes scripts for that.
+- **Generating images** is not built in; it's one custom tool away (drop a `.ts` in `src/tools/custom/` that calls any image API — see [Dynamic tools](#whats-inside)).
+
 ```bash
 npm link                  # one-time: register the `novus` command globally
 novus                     # interactive chat
