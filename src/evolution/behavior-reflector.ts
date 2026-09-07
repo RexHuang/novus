@@ -248,9 +248,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 	if (maxToolsInTurn >= 4) {
 		patterns.push({
 			pattern: "over-tool-calling",
-			description: `第${maxToolsTurn}轮调用了${maxToolsInTurn}个非自主工具，超过了建议的3个上限`,
+			description: `Turn ${maxToolsTurn}: called ${maxToolsInTurn} non-autonomous tools, over the suggested limit of 3`,
 			count: maxToolsInTurn - 3,
-			suggestedRule: "每轮最多调用2-3个工具。如果超过，先问自己：哪些可以合并？哪些可以省略？",
+			suggestedRule: "Call at most 2-3 tools per turn. If more, ask yourself: which can be merged? which skipped?",
 			isNovel: false,
 		});
 		notes.push(`${maxToolsInTurn} tools in turn ${maxToolsTurn}`);
@@ -278,9 +278,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 		const details = repetitiveDetails.join("; ");
 		patterns.push({
 			pattern: "repetitive-tool-calls",
-			description: `连续重复调用了相同的工具 ${repetitiveCount} 次（${details}）`,
+			description: `Called the same tool ${repetitiveCount} times in a row (${details})`,
 			count: repetitiveCount,
-			suggestedRule: "调用工具后先看结果再决定下一步。不要连续调用同一个工具而不检查中间结果。",
+			suggestedRule: "Check the result after each tool call before deciding the next step. Never chain the same tool without inspecting intermediate results.",
 			isNovel: repetitiveCount >= 4, // 4+ times is unusually bad
 		});
 		notes.push(`${repetitiveCount} repetitive calls`);
@@ -309,9 +309,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 	if (spamCount >= 4) {
 		patterns.push({
 			pattern: "screen-spam",
-			description: `第${spamTurn}轮调用了 ${spamTool} ${spamCount} 次，用户看到的是刷屏`,
+			description: `Turn ${spamTurn}: called ${spamTool} ${spamCount} times — screen spam for the user`,
 			count: spamCount - 3,
-			suggestedRule: `同一轮内不要调用同一个工具超过3次。用 && 合并 bash 命令，用 glob 批量匹配文件，用一次 read 读完而不是分多次。`,
+			suggestedRule: `Don't call the same tool more than 3 times in one turn. Merge bash commands with &&, match files with glob, read once instead of many times.`,
 			isNovel: spamCount >= 6,
 		});
 		notes.push(`${spamTool} x${spamCount} spam in turn ${spamTurn}`);
@@ -331,9 +331,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 		if (sequentialRecall >= 2) {
 			patterns.push({
 				pattern: "repetitive-recall",
-				description: `${recallCalls.length} 次记忆召回，其中 ${sequentialRecall} 次是连续/相邻轮次`,
+				description: `${recallCalls.length} memory recalls, ${sequentialRecall} of them in consecutive/adjacent turns`,
 				count: sequentialRecall,
-				suggestedRule: "recall 一次就够了，把结果记住。不要在同一会话内反复 recall。",
+				suggestedRule: "One recall is enough — remember the result. Don't recall repeatedly in the same session.",
 				isNovel: false,
 			});
 			notes.push(`${recallCalls.length} recalls total`);
@@ -350,9 +350,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 				.sort(([, a], [, b]) => b.length - a.length)[0];
 			patterns.push({
 				pattern: "high-tool-error-rate",
-				description: `工具调用失败率 ${errorRate}%（${errorCalls.length}/${toolCalls.length}），${worstTool ? worstTool[0] + " 失败 " + worstTool[1].length + " 次" : ""}`,
+				description: `Tool call failure rate ${errorRate}% (${errorCalls.length}/${toolCalls.length}), ${worstTool ? worstTool[0] + " failed " + worstTool[1].length + " times" : ""}`,
 				count: errorCalls.length,
-				suggestedRule: `工具报错时不要直接重试相同参数。先分析错误原因，调整参数再试。如果 ${worstTool?.[0] ?? "某个工具"} 持续报错，换一个方法实现目标。`,
+				suggestedRule: `When a tool errors, don't retry with identical params. Analyze the cause first, adjust, then retry. If ${worstTool?.[0] ?? "a tool"} keeps failing, try a different approach.`,
 				isNovel: errorRate > 50,
 			});
 			notes.push(`${errorRate}% error rate`);
@@ -363,9 +363,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 	if (userCorrections >= 2) {
 		patterns.push({
 			pattern: "user-correction-pattern",
-			description: `用户纠正了 ${userCorrections} 次`,
+			description: `User corrected ${userCorrections} times`,
 			count: userCorrections,
-			suggestedRule: "用户第一次纠正时就应该完全理解并记住。连续被纠正说明没听进去。",
+			suggestedRule: "Fully understand and remember at the first correction. Repeated corrections mean you weren't listening.",
 			isNovel: userCorrections >= 4,
 		});
 		notes.push(`${userCorrections} user corrections`);
@@ -382,9 +382,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 			if (exploreCount >= 3) {
 				patterns.push({
 					pattern: "guess-instead-of-ask",
-					description: `第${turn}轮在未确认用户意图的情况下，自主探索了 ${exploreCount} 次（${turnCalls.filter(tc => explorationPatterns.includes(tc.toolName)).map(tc => tc.toolName).join(", ")}）`,
+					description: `Turn ${turn}: explored autonomously ${exploreCount} times without confirming user intent (${turnCalls.filter(tc => explorationPatterns.includes(tc.toolName)).map(tc => tc.toolName).join(", ")}`,
 					count: exploreCount - 2,
-					suggestedRule: "不确定用户想要什么时，先问一句确认方向，而不是自己猜然后做一串探索。",
+					suggestedRule: "When unsure what the user wants, ask first to confirm direction instead of guessing and exploring.",
 					isNovel: false,
 				});
 				notes.push(`explored ${exploreCount}x without asking`);
@@ -571,21 +571,21 @@ export function buildBehaviorSummary(): string {
 	// Tracked patterns with effectiveness
 	if (patterns.length > 0) {
 		const totalRecent = patterns.reduce((sum, p) => sum + (p.recentCount ?? p.count), 0);
-		lines.push(`行为模式追踪: ${patterns.length} 种模式, ${totalRecent} 次/30d`);
+		lines.push(`Behavior patterns tracked: ${patterns.length} patterns, ${totalRecent} hits/30d`);
 
 		// Show resolved vs active patterns
 		const resolved = effectiveness.filter(e => e.isResolved);
 		const active = effectiveness.filter(e => !e.isResolved);
 		if (active.length > 0) {
-			lines.push(`⚠️ 活跃: ${active.map(e => `${e.pattern}(${e.count}x)`).join(", ")}`);
+			lines.push(`⚠️ Active: ${active.map(e => `${e.pattern}(${e.count}x)`).join(", ")}`);
 		}
 		if (resolved.length > 0) {
-			lines.push(`✅ 已控制: ${resolved.map(e => e.pattern).join(", ")}`);
+			lines.push(`✅ Resolved: ${resolved.map(e => e.pattern).join(", ")}`);
 		}
 	}
 
 	if (state.analyzedSessionIds.length > 0) {
-		lines.push(`已分析 ${state.analyzedSessionIds.length} 个会话的行为`);
+		lines.push(`Analyzed behavior of ${state.analyzedSessionIds.length} sessions`);
 	}
 
 	return lines.join("\n");

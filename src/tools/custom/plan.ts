@@ -297,27 +297,27 @@ function handleAutoExecute() {
 	const doneSteps = plan.steps.filter(s => s.status === "done");
 	const context = doneSteps.length > 0
 		? doneSteps.map(s => `[${s.number}] ${s.description}${s.details ? ": " + s.details.slice(0, 100) : ""}`).join("\n")
-		: "无前置步骤";
+		: "no prerequisites";
 
 	// Generate execution script
 	const script: string[] = [
-		`📋 自主执行 — Step ${nextStep.number}/${plan.steps.length}`,
-		`目标: ${plan.goal}`,
+		`📋 Autonomous execution — Step ${nextStep.number}/${plan.steps.length}`,
+		`Goal: ${plan.goal}`,
 		``,
-		`▶ 当前步骤: ${desc}`,
+		`▶ Current step: ${desc}`,
 		``,
-		`📥 推断的工具链:`,
+		`📥 Inferred tool chain:`,
 	];
 	for (const action of inferred.actions) {
 		script.push(`  → ${action}`);
 	}
 
 	if (inferred.fallback) {
-		script.push(``, `🔄 失败回退: ${inferred.fallback}`);
+		script.push(``, `🔄 On failure: ${inferred.fallback}`);
 	}
 
-	script.push(``, `📦 前置上下文:`, context);
-	script.push(``, `💡 执行建议:`, inferred.advice);
+	script.push(``, `📦 Prerequisite context:`, context);
+	script.push(``, `💡 Execution advice:`, inferred.advice);
 
 	// Auto-mark as in-progress
 	nextStep.status = "in-progress";
@@ -340,64 +340,64 @@ function handleAutoExecute() {
 function inferActions(desc: string): { actions: string[]; fallback: string; advice: string } {
 	const lower = desc.toLowerCase();
 	const actions: string[] = [];
-	let fallback = "检查上一个步骤的结果，确认环境状态后重试";
-	let advice = "先确认环境和依赖就绪，再执行主要操作。";
+	let fallback = "Check the previous step's result, confirm environment state, then retry";
+	let advice = "Confirm environment and dependencies are ready before the main operation.";
 
 	// Pattern matching on step descriptions
 	if (/ssh|远程|服务器|175|93/.test(lower)) {
-		actions.push("bash: sshpass -p '密码' ssh ubuntu@目标IP '命令'");
-		actions.push("healthy: 检查节点状态");
-		fallback = "检查SSH连通性，确认目标服务器在线";
+		actions.push("bash: sshpass -p '<password>' ssh ubuntu@<target-ip> '<command>'");
+		actions.push("healthy: check node status");
+		fallback = "Check SSH connectivity, confirm the target server is online";
 	}
 	if (/修复|fix|bug|错误|error/.test(lower)) {
 		actions.push("bash/read: 诊断问题（查看日志/错误信息）");
-		actions.push("edit/write: 修复代码");
-		actions.push("runtests: 验证修复");
-		fallback = "如果修复失败，尝试回退到上一个已知好的版本";
+		actions.push("edit/write: fix the code");
+		actions.push("runtests: verify the fix");
+		fallback = "If the fix fails, roll back to the last known-good version";
 	}
 	if (/编译|build|tsc|deploy|部署|发布/.test(lower)) {
 		actions.push("bash: cd ~/novus && npx tsc");
-		actions.push("bash: 部署命令");
-		fallback = "如果编译失败，检查TypeScript错误并修复";
+		actions.push("bash: deploy command");
+		fallback = "If the build fails, check TypeScript errors and fix them";
 	}
 	if (/测试|test|验证/.test(lower)) {
-		actions.push("runtests: 运行测试");
-		fallback = "如果测试失败，查看失败详情，定位bug";
+		actions.push("runtests: run the tests");
+		fallback = "If tests fail, inspect failure details and locate the bug";
 	}
 	if (/抓取|fetch|crawl|新闻|news/.test(lower)) {
-		actions.push("connect fetch: 抓取URL");
-		actions.push("connect learn: 存储有价值的知识");
+		actions.push("connect fetch: fetch the URL");
+		actions.push("connect learn: store valuable knowledge");
 	}
 	if (/知识|knowledge|recall|learn/.test(lower)) {
-		actions.push("connect recall: 搜索相关知识");
-		actions.push("connect learn: 存储新知识");
+		actions.push("connect recall: search related knowledge");
+		actions.push("connect learn: store new knowledge");
 	}
 	if (/监控|巡检|health|check|检查/.test(lower)) {
-		actions.push("healthy check: 检查三机状态");
-		actions.push("federation status: 查看联邦状态");
+		actions.push("healthy check: check fleet status");
+		actions.push("federation status: view federation status");
 	}
 	if (/联邦|federation|ws-comm|同步/.test(lower)) {
-		actions.push("federation: 联邦操作");
-		actions.push("ws-comm: 消息通信");
+		actions.push("federation: federation operations");
+		actions.push("ws-comm: message communication");
 	}
 	if (/优化|improve|refactor|重构/.test(lower)) {
-		actions.push("read: 读取当前代码");
-		actions.push("edit/write: 修改优化");
-		actions.push("runtests: 验证无回归");
+		actions.push("read: read current code");
+		actions.push("edit/write: modify and improve");
+		actions.push("runtests: verify no regression");
 	}
 	if (/存储|store|connect|知识/.test(lower) && /写入|save|写/.test(lower)) {
-		actions.push("connect learn: 存储知识/经历");
+		actions.push("connect learn: store knowledge/experience");
 	}
 
 	if (actions.length === 0) {
-		actions.push("bash/read: 分析当前状态");
-		actions.push("根据分析结果决定下一步工具");
-		advice = "这是一个开放性步骤，需要根据实际情况灵活处理";
+		actions.push("bash/read: analyze current state");
+		actions.push("Decide the next tool based on the analysis");
+		advice = "This is an open-ended step — handle flexibly based on the actual situation";
 	}
 
 	// Generate contextual advice based on step position
 	if (/步骤|Step/i.test(desc) && /1|第一|初始/.test(desc)) {
-		advice = "这是第一步，先确认环境就绪再开始。";
+		advice = "This is the first step — confirm the environment is ready before starting.";
 	}
 
 	return { actions, fallback, advice };

@@ -173,17 +173,17 @@ export function projectContextSummary(slug: string): string {
   ).join("\n");
 
   return [
-    `## 📁 当前项目: ${p.name}`,
+    `## 📁 Current project: ${p.name}`,
     `${p.description}`,
-    `**技术栈**: ${p.techStack.join(", ")}`,
-    `**上次工作**: ${p.lastWork || "无"}`,
-    `**下一步**: ${p.nextStep || "无"}`,
+    `**Tech stack**: ${p.techStack.join(", ")}`,
+    `**Last work**: ${p.lastWork || "none"}`,
+    `**Next step**: ${p.nextStep || "none"}`,
     "",
-    "**模块进度:**",
+    "**Module progress:**",
     modules,
   ].join("\n")
-    + (recentDecisions ? `\n\n**最近决策:**\n${recentDecisions}` : "")
-    + (todos ? `\n\n**待办:**\n${todos}` : "");
+    + (recentDecisions ? `\n\n**Recent decisions:**\n${recentDecisions}` : "")
+    + (todos ? `\n\n**Todos:**\n${todos}` : "");
 }
 
 /** Find the most recently updated project */

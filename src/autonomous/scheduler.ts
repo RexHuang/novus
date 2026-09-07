@@ -248,10 +248,10 @@ function evaluateQuality(summary: string | undefined): number {
   if (!summary || summary.trim().length === 0) return 0;
   const s = summary.trim();
 
-  // 明确的负面信号
-  if (/^(无|没有|未|不需要|不适用|n\/a)/.test(s)) return 0.1;
-  if (/网络限制|未执行|跳过|skip/.test(s)) return 0.1;
-  if (/正常|无异常|无问题|no issue/.test(s) && s.length < 30) return 0.2;
+  // explicit negative signals (zh + en)
+  if (/^(无|没有|未|不需要|不适用|n\/a|none|nothing|not\s)/i.test(s)) return 0.1;
+  if (/网络限制|未执行|跳过|skip|not executed|skipped|network restriction/i.test(s)) return 0.1;
+  if (/正常|无异常|无问题|no issue|^ok\b|^all good/i.test(s) && s.length < 30) return 0.2;
 
   let score = 0.5; // 基准分
 
@@ -262,7 +262,7 @@ function evaluateQuality(summary: string | undefined): number {
 
   // 信息密度加分：包含具体数据/发现
   if (/\\d+/.test(s)) score += 0.05;
-  if (/发现|找到|识别|追踪到|获取|完成.*发现/.test(s)) score += 0.1;
+  if (/发现|找到|识别|追踪到|获取|完成.*发现|found|identified|discovered|tracked|completed/i.test(s)) score += 0.1;
   if (/(?:https?:|arXiv|github\\.com|\\$|USD|\\d+%)/.test(s)) score += 0.05;
 
   return Math.min(score, 1.0);
@@ -393,7 +393,7 @@ export function buildAutonomousSummary(): string {
     const dueNames = due.map(t => t.name).join(", ");
     parts.push(due.length + " due: " + dueNames);
     if (due.length > 0) {
-      parts.push("→ 你必须执行到期任务: auto-manage action=run");
+      parts.push("→ you MUST execute due tasks now: auto-manage action=run");
     }
   }
 

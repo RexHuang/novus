@@ -164,7 +164,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 	return {
 		name: "session-context",
 		description:
-			"会话上下文持久化。update 写入当前工作进度（做什么、做到哪、下一步），下次会话自动恢复。异常退出也能记住。每次推进工作时调用一次。",
+			"Session context persistence. update writes current work progress (what, where, next) and restores it in the next session — even after an abnormal exit. Call once per work session.",
 		label: "session-context",
 
 		parameters: {
@@ -173,33 +173,33 @@ export function createTool(_cwd: string): AgentTool<any> {
 				action: {
 					type: "string",
 					enum: ["update", "show", "clear"],
-					description: "操作类型",
+					description: "Action type",
 				},
 				activity: {
 					type: "string",
-					description: "我在做什么（一句话，必填 for update）",
+					description: "What I'm doing (one sentence, required for update)",
 				},
 				detail: {
 					type: "string",
-					description: "补充上下文（可选）",
+					description: "Extra context (optional)",
 				},
 				step: {
 					type: "string",
-					description: "当前步骤/阶段（可选）",
+					description: "Current step/phase (optional)",
 				},
 				files: {
 					type: "array",
 					items: { type: "string" },
-					description: "涉及的文件（可选）",
+					description: "Files involved (optional)",
 				},
 				nextStep: {
 					type: "string",
-					description: "下一步计划（可选）",
+					description: "Next step plan (optional)",
 				},
 				status: {
 					type: "string",
 					enum: ["working", "blocked", "done"],
-					description: "状态（可选）",
+					description: "Status (optional)",
 				},
 			},
 			required: ["action"],
@@ -211,7 +211,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 			switch (p.action) {
 				case "update": {
 					if (!p.activity) {
-						return { content: [text("❌ activity 是必填项——你在做什么？")], details: {} };
+						return { content: [text("❌ activity is required — what are you working on?")], details: {} };
 					}
 
 					const ctx: SessionContext = {
@@ -225,7 +225,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 					};
 					saveContext(ctx);
 
-					const parts: string[] = [`💾 已保存: ${p.activity}`];
+					const parts: string[] = [`💾 Saved: ${p.activity}`];
 					if (p.step) parts.push(`📍 Step: ${p.step}`);
 					if (p.nextStep) parts.push(`➡️ Next: ${p.nextStep}`);
 					if (p.files?.length) parts.push(`📁 Files: ${p.files.join(", ")}`);
@@ -235,14 +235,14 @@ export function createTool(_cwd: string): AgentTool<any> {
 				case "show": {
 					const ctx = loadContext();
 					if (!ctx || !ctx.activity) {
-						return { content: [text("📭 无上下文记录。")], details: {} };
+						return { content: [text("📭 No context on record.")], details: {} };
 					}
 
 					// Staleness detection: warn if unfinished and >2 hours old
 					const ageMs = Date.now() - new Date(ctx.timestamp).getTime();
 					const isStale = ctx.status !== "done" && ageMs > 2 * 60 * 60 * 1000;
 					const staleWarning = isStale
-						? `⚠️ 记录已过 ${Math.round(ageMs / 3600000)}h，可能过时。如不对请 update。\n`
+						? `⚠️ Entry is ${Math.round(ageMs / 3600000)}h old, may be stale. update if wrong.\n`
 						: "";
 
 					const parts: string[] = [];
@@ -259,11 +259,11 @@ export function createTool(_cwd: string): AgentTool<any> {
 
 				case "clear": {
 					clearContext();
-					return { content: [text("🗑️ 上下文已清除。")], details: {} };
+					return { content: [text("🗑️ Context cleared.")], details: {} };
 				}
 
 				default:
-					return { content: [text(`未知操作: ${p.action}`)], details: {} };
+					return { content: [text(`Unknown action: ${p.action}`)], details: {} };
 			}
 		},
 	};

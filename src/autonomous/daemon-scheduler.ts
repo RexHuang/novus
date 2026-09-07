@@ -112,18 +112,18 @@ export async function startDaemonScheduler(cwd: string): Promise<() => void> {
 			runningTaskIds.add(task.id);
 
 			const startTime = Date.now();
-			console.log("▶ 执行任务: " + task.name + " [" + task.id.slice(0, 6) + "]");
+			console.log("▶ Executing task: " + task.name + " [" + task.id.slice(0, 6) + "]");
 
 			try {
 				// 创建 headless agent 执行任务
 				const agent = await createMinAgent({ cwd, maxToolCallsPerTurn: 200 });
-				const prompt = `执行以下自主任务。完成后用 auto-manage action=complete 记录结果（包含 summary）。\n\n## 任务\n名称: ${task.name}\n指令:\n${task.instruction}\n\n注意：这是后台自动执行，不需要输出给用户看。安静地执行，完成即可。`;
+				const prompt = `Execute the following autonomous task. When done, record the result (including a summary) with auto-manage action=complete.\n\n## Task\nName: ${task.name}\nInstruction:\n${task.instruction}\n\nNote: this runs in the background, no output for the user. Execute quietly and finish.`;
 				await agent.prompt(prompt);
 				// markTaskExecuted 由 agent 在执行 auto-manage complete 时调用
 				// 但如果 agent 没调 complete，我们兜底标记成功
-				console.log("✅ 任务完成: " + task.name + " (" + ((Date.now() - startTime) / 1000).toFixed(1) + "s)");
+				console.log("✅ Task completed: " + task.name + " (" + ((Date.now() - startTime) / 1000).toFixed(1) + "s)");
 			} catch (err) {
-				console.error("❌ 任务失败: " + task.name + " — " + (err instanceof Error ? err.message : err));
+				console.error("❌ Task failed: " + task.name + " — " + (err instanceof Error ? err.message : err));
 				markTaskExecuted(task.id, false, "daemon execution error: " + (err instanceof Error ? err.message : String(err)));
 			} finally {
 				runningTaskIds.delete(task.id);
@@ -171,19 +171,19 @@ export async function startDaemonScheduler(cwd: string): Promise<() => void> {
 						.map((m: any) => `[${m.from || "?"}] ${m.type || "msg"}: ${String(m.content || m.raw || "").slice(0, 500)}`)
 						.join("\n");
 					const replyTo = msgs[0]?.from || agentId;
-const prompt = `【必须回复】你收到了来自节点 ${replyTo} 的 ws-comm 消息。
+const prompt = `[REPLY REQUIRED] You received a ws-comm message from node ${replyTo}.
 
-消息内容：
+Message content:
 ${msgsText}
 
-回复方法（必做）：调用 ws-comm 工具，参数：action=send, myId=${agentId}, to=${replyTo}, type=result, content=你的回复内容
+How to reply (required): call the ws-comm tool with action=send, myId=${agentId}, to=${replyTo}, type=result, content=your reply
 
-规则：
-1. question 和 request 类型 → 必须用 ws-comm action=send 回复到 ${replyTo}
-2. result 和 alert 类型 → 不用回复，忽略即可
-3. 绝对不要只输出文字不调用工具`
+Rules:
+1. question and request types → must reply via ws-comm action=send to ${replyTo}
+2. result and alert types → no reply needed, ignore
+3. Never just print text without calling the tool`
 					await agent.prompt(prompt);
-					console.log("✅ ws-comm 消息已处理: " + agentId + " (" + msgs.length + " 条)");
+					console.log("✅ ws-comm message processed: " + agentId + " (" + msgs.length + " message(s))");
 				} finally {
 					wsProcessing = false;
 				}

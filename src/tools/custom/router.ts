@@ -100,67 +100,67 @@ export interface ToolChain {
 export const TOOL_CHAINS: ToolChain[] = [
 	{
 		name: "knowledge-acquire",
-		description: "从网络获取信息并存储为知识",
+		description: "Fetch info from the web and store as knowledge",
 		intent: "knowledge",
 		steps: [
-			{ tool: "connect-fetch", intent: "fetch", description: "抓取目标URL" },
-			{ tool: "connect-learn", intent: "knowledge", description: "提取关键信息存入知识库" },
+			{ tool: "connect-fetch", intent: "fetch", description: "Fetch the target URL" },
+			{ tool: "connect-learn", intent: "knowledge", description: "Extract key info into the knowledge base" },
 		],
-		triggerPatterns: ["抓取并记住", "学习这个页面", "获取并存", "抓取信息", "存入知识库", "抓取这个页面", "记住", "并记住", "存入"],
+		triggerPatterns: ["抓取并记住", "学习这个页面", "获取并存", "抓取信息", "存入知识库", "抓取这个页面", "记住", "并记住", "存入", "fetch and remember", "learn this page", "save this"],
 	},
 	{
 		name: "knowledge-recall",
-		description: "搜索知识库，如果本地无结果则查询联邦节点",
+		description: "Search the knowledge base; query federated nodes if local has no results",
 		intent: "knowledge",
 		steps: [
-			{ tool: "connect-recall", intent: "knowledge", description: "搜索本地知识库", optional: false },
-			{ tool: "fed-knowledge", intent: "knowledge", description: "联邦跨节点查询", optional: true },
+			{ tool: "connect-recall", intent: "knowledge", description: "Search the local knowledge base", optional: false },
+			{ tool: "fed-knowledge", intent: "knowledge", description: "Federated cross-node query", optional: true },
 		],
-		triggerPatterns: ["记得", "之前学过", "知识库里有", "查一下记忆", "历史记录", "recall"],
+		triggerPatterns: ["记得", "之前学过", "知识库里有", "查一下记忆", "历史记录", "recall", "remember", "have we stored"],
 	},
 	{
 		name: "code-change",
-		description: "读取代码 → 编辑 → 测试验证",
+		description: "Read code → edit → verify with tests",
 		intent: "code",
 		steps: [
-			{ tool: "read", intent: "code", description: "读取目标文件" },
-			{ tool: "edit", intent: "code", description: "修改代码" },
-			{ tool: "runtests", intent: "code", description: "运行测试验证", optional: true },
+			{ tool: "read", intent: "code", description: "Read the target file" },
+			{ tool: "edit", intent: "code", description: "Modify the code" },
+			{ tool: "runtests", intent: "code", description: "Run tests to verify", optional: true },
 		],
-		triggerPatterns: ["修改", "重构", "fix", "修复", "改进代码", "改bug", "更新代码"],
+		triggerPatterns: ["修改", "重构", "fix", "修复", "改进代码", "改bug", "更新代码", "update code"],
 	},
 	{
 		name: "full-deploy",
-		description: "代码变更 → 打包 → 同步三机 → 验证",
+		description: "Code change → build → sync fleet → verify",
 		intent: "system",
 		steps: [
-			{ tool: "bash", intent: "code", description: "编译打包" },
-			{ tool: "sync", intent: "system", description: "同步到所有节点" },
-			{ tool: "healthy", intent: "system", description: "健康检查验证" },
+			{ tool: "bash", intent: "code", description: "Build and package" },
+			{ tool: "sync", intent: "system", description: "Sync to all nodes" },
+			{ tool: "healthy", intent: "system", description: "Health check to verify" },
 		],
-		triggerPatterns: ["更新三机", "同步到所有节点", "全量部署", "升级所有节点"],
+		triggerPatterns: ["更新三机", "同步到所有节点", "全量部署", "升级所有节点", "deploy to all nodes"],
 	},
 	{
 		name: "oss-contribute",
-		description: "搜索匹配的开源issue → 记录贡献",
+		description: "Find matching OSS issues → record contribution",
 		intent: "oss",
 		steps: [
-			{ tool: "contributor-search", intent: "oss", description: "搜索匹配的issue" },
-			{ tool: "github-read-issue", intent: "oss", description: "阅读issue详情", optional: true },
-			{ tool: "contributor-record", intent: "oss", description: "记录贡献" },
+			{ tool: "contributor-search", intent: "oss", description: "Search matching issues" },
+			{ tool: "github-read-issue", intent: "oss", description: "Read issue details", optional: true },
+			{ tool: "contributor-record", intent: "oss", description: "Record the contribution" },
 		],
-		triggerPatterns: ["找开源贡献", "搜索issue", "贡献代码", "参与开源"],
+		triggerPatterns: ["找开源贡献", "搜索issue", "贡献代码", "参与开源", "contribute to OSS"],
 	},
 	{
 		name: "proactive-check",
-		description: "系统健康检查 → 执行到期任务 → 联邦消息轮询",
+		description: "Health check → run due tasks → poll federation messages",
 		intent: "system",
 		steps: [
-			{ tool: "healthy", intent: "system", description: "健康检查" },
-			{ tool: "auto-manage-due", intent: "system", description: "查看并执行到期任务" },
-			{ tool: "federation-poll", intent: "system", description: "处理联邦消息", optional: true },
+			{ tool: "healthy", intent: "system", description: "Health check" },
+			{ tool: "auto-manage-due", intent: "system", description: "List and run due tasks" },
+			{ tool: "federation-poll", intent: "system", description: "Process federation messages", optional: true },
 		],
-		triggerPatterns: ["巡检", "日常检查", "状态检查", "待办任务"],
+		triggerPatterns: ["巡检", "日常检查", "状态检查", "待办任务", "daily check"],
 	},
 ];
 
@@ -199,7 +199,7 @@ export class RedundancyDetector {
 			(r) => r.tool === tool && JSON.stringify(r.params) === JSON.stringify(params)
 		);
 		if (recentSame.length >= 2) {
-			return `同参数调用 ${tool} 已执行 ${recentSame.length} 次，疑似重复`;
+			return `Same-params call to ${tool} already made ${recentSame.length} times — likely redundant`;
 		}
 
 		// 检查同轮调用中是否已有完全相同目标的同类操作（仅针对有明确目标的工具）
@@ -209,7 +209,7 @@ export class RedundancyDetector {
 			if (!params[key]) continue;
 			for (const r of recent5) {
 				if (r.tool === tool && r.params[key] === params[key]) {
-					return `${tool} 对同一目标 ${params[key]} 刚刚调用过`;
+					return `${tool} was just called on the same target ${params[key]}`;
 				}
 			}
 		}
@@ -221,7 +221,7 @@ export class RedundancyDetector {
 	 * 获取本轮调用统计摘要
 	 */
 	summary(): string {
-		if (this.history.length === 0) return "无调用记录";
+		if (this.history.length === 0) return "no calls recorded";
 		const toolCounts = new Map<string, number>();
 		for (const r of this.history) {
 			toolCounts.set(r.tool, (toolCounts.get(r.tool) ?? 0) + 1);
@@ -229,10 +229,10 @@ export class RedundancyDetector {
 		const lines: string[] = [];
 		for (const [tool, count] of toolCounts) {
 			if (count >= 3) {
-				lines.push(`⚠️ ${tool} 调用 ${count} 次（可能过多）`);
+				lines.push(`⚠️ ${tool} called ${count} times (possibly too many)`);
 			}
 		}
-		return lines.length > 0 ? lines.join("\n") : "调用模式正常";
+		return lines.length > 0 ? lines.join("\n") : "call patterns normal";
 	}
 
 	clear(): void {
@@ -343,16 +343,16 @@ export function routeAdvice(input: string, allToolNames: string[]): string {
 
 	if (intents.length > 0) {
 		const topIntent = intents[0]!;
-		parts.push(`意图识别: ${topIntent.intent} (置信度 ${Math.round(topIntent.confidence * 100)}%)`);
+		parts.push(`Intent: ${topIntent.intent} (confidence ${Math.round(topIntent.confidence * 100)}%)`);
 	}
 
 	if (chain) {
-		parts.push(`推荐工具链: [${chain.name}] ${chain.steps.map((s) => s.tool).join(" → ")}`);
+		parts.push(`Suggested chain: [${chain.name}] ${chain.steps.map((s) => s.tool).join(" → ")}`);
 	}
 
 	// 冗余警告
 	const warning = getDetector().summary();
-	if (warning !== "调用模式正常") {
+	if (warning !== "call patterns normal") {
 		parts.push(warning);
 	}
 
@@ -364,11 +364,11 @@ export function routeAdvice(input: string, allToolNames: string[]): string {
 export function createTool(cwd: string): AgentTool<any> {
 	return {
 		name: "smart-router",
-		description: `智能路由引擎 — 分析用户意图，推荐最优工具链。支持：
-- route: 分析输入，返回意图分类、推荐工具子集和工具链建议
-- chains: 列出所有可用工具链模板
-- redundant: 检查当前是否有冗余工具调用
-- classify: 仅做意图分类`,
+		description: `Smart routing engine — analyzes user intent, recommends optimal tool chains. Actions:
+- route: analyze input, return intent classification, recommended tool subset and chain suggestion
+- chains: list all available chain templates
+- redundant: check for redundant tool calls
+- classify: intent classification only`,
 		label: "Smart Router",
 		parameters: {
 			type: "object",
@@ -376,11 +376,11 @@ export function createTool(cwd: string): AgentTool<any> {
 				action: {
 					type: "string",
 					enum: ["route", "chains", "redundant", "classify"],
-					description: "操作类型",
+					description: "Action type",
 				},
 				input: {
 					type: "string",
-					description: "用户输入文本（route/classify 时必填）",
+					description: "Input text (required for route/classify)",
 				},
 			},
 			required: ["action"],
@@ -391,7 +391,7 @@ export function createTool(cwd: string): AgentTool<any> {
 			switch (p.action) {
 				case "classify": {
 					if (!p.input) {
-						return { content: [{ type: "text", text: "缺少 input 参数" }], details: {} };
+						return { content: [{ type: "text", text: "Missing input param" }], details: {} };
 					}
 					const intents = classifyIntent(p.input);
 					return {
@@ -405,7 +405,7 @@ export function createTool(cwd: string): AgentTool<any> {
 
 				case "route": {
 					if (!p.input) {
-						return { content: [{ type: "text", text: "缺少 input 参数" }], details: {} };
+						return { content: [{ type: "text", text: "Missing input param" }], details: {} };
 					}
 					const intents = classifyIntent(p.input);
 					const chain = matchToolChain(p.input);
@@ -451,7 +451,7 @@ export function createTool(cwd: string): AgentTool<any> {
 
 				default:
 					return {
-						content: [{ type: "text", text: `未知操作: ${p.action}` }],
+						content: [{ type: "text", text: `Unknown action: ${p.action}` }],
 						details: {},
 					};
 			}

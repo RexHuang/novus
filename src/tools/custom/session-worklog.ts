@@ -34,10 +34,10 @@ const MAX_CHECKPOINTS = 10;
 function autoSyncToKnowledge(entry: WorklogEntry): void {
 	try {
 		const parts: string[] = [entry.activity];
-		if (entry.changes) parts.push("改动: " + entry.changes);
-		if (entry.step) parts.push("阶段: " + entry.step);
-		if (entry.nextStep) parts.push("下一步: " + entry.nextStep);
-		if (entry.files && entry.files.length > 0) parts.push("文件: " + entry.files.join(", "));
+		if (entry.changes) parts.push("changes: " + entry.changes);
+		if (entry.step) parts.push("step: " + entry.step);
+		if (entry.nextStep) parts.push("next: " + entry.nextStep);
+		if (entry.files && entry.files.length > 0) parts.push("files: " + entry.files.join(", "));
 
 		const content = parts.join(" | ");
 		const isBusinessRelevant = !!(entry.files?.length || entry.changes);
@@ -216,11 +216,11 @@ function listCheckpoints(): Array<{id: string, timestamp: string, files: string[
 function restoreCheckpoint(cpId: string): string {
 	const cpDir = join(CHECKPOINT_DIR, cpId);
 	if (!existsSync(cpDir)) {
-		return `❌ Checkpoint ${cpId} 不存在`;
+		return `❌ Checkpoint ${cpId} not found`;
 	}
 	const metaPath = join(cpDir, ".checkpoint.json");
 	if (!existsSync(metaPath)) {
-		return `❌ Checkpoint ${cpId} 元数据丢失`;
+		return `❌ Checkpoint ${cpId} metadata missing`;
 	}
 	const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
 	const restored: string[] = [];
@@ -232,7 +232,7 @@ function restoreCheckpoint(cpId: string): string {
 			restored.push(f);
 		}
 	}
-	return `✅ 已从 checkpoint ${cpId} 恢复 ${restored.length} 个文件:\n${restored.join("\n")}`;
+	return `✅ Restored ${restored.length} file(s) from checkpoint ${cpId}:\n${restored.join("\n")}`;
 }
 
 // ── Format ──────────────────────────────────────────────────────────
@@ -290,7 +290,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 	return {
 		name: "session-worklog",
 		description:
-			"会话工作日志+自动文件备份。log 自动备份涉及文件到 checkpoints，undo 列出/恢复 checkpoint，history 查看操作历史。修改代码前必须先 log，出错时用 undo 回退。",
+			"Session work log + auto file backup. log auto-backups touched files to checkpoints, undo lists/restores checkpoints, history shows past operations. Always log before editing code; use undo to roll back on error.",
 		label: "session-worklog",
 
 		parameters: {
@@ -299,45 +299,45 @@ export function createTool(_cwd: string): AgentTool<any> {
 				action: {
 					type: "string",
 					enum: ["log", "snapshot", "show", "recover", "clear", "checkpoint", "undo", "history"],
-					description: "工作日志操作",
+					description: "Work log action",
 				},
 				activity: {
 					type: "string",
-					description: "当前正在做什么（一句话）",
+					description: "What you're doing right now (one sentence)",
 				},
 				context: {
 					type: "string",
-					description: "补充上下文（可选）",
+					description: "Extra context (optional)",
 				},
 				step: {
 					type: "string",
-					description: "所在的 plan step 或阶段",
+					description: "Current plan step or phase",
 				},
 				files: {
 					type: "array",
 					items: { type: "string" },
-					description: "涉及的关键文件（log时自动备份）",
+					description: "Key files involved (auto-backed up on log)",
 				},
 				changes: {
 					type: "string",
-					description: "做了什么代码改动（摘要，用于回退参考）",
+					description: "What code changed (summary, for rollback reference)",
 				},
 				nextStep: {
 					type: "string",
-					description: "下一步计划做什么",
+					description: "What is planned next",
 				},
 				autoCheckpoint: {
 					type: "boolean",
-					description: "是否自动备份涉及的文件（默认 true）",
+					description: "Auto-backup touched files (default true)",
 				},
 				checkpoint: {
 					type: "string",
-					description: "checkpoint ID（undo restore 时必填）",
+					description: "Checkpoint ID (required for undo restore)",
 				},
 				status: {
 					type: "string",
 					enum: ["working", "blocked", "done", "idle"],
-					description: "工作状态",
+					description: "Work status",
 				},
 			},
 			required: ["action"],
@@ -350,7 +350,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 			switch (p.action) {
 				case "log": {
 					if (!p.activity) {
-						return { content: [text("❌ activity 是必填项——你正在做什么？")], details: {} };
+						return { content: [text("❌ activity is required — what are you working on?")], details: {} };
 					}
 
 					const entry: WorklogEntry = {
@@ -383,7 +383,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 					// Sync to session-context for identity injection
 					syncFromWorklog(entry);
 
-					let msg = `📝 已记录: ${p.activity}`;
+					let msg = `📝 Logged: ${p.activity}`;
 					if (entry.checkpoint) msg += ` [💾 ${entry.checkpoint}]`;
 					if (p.changes) msg += `\n🔧 ${p.changes}`;
 					if (p.nextStep) msg += `\n➡️ Next: ${p.nextStep}`;
@@ -398,7 +398,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 
 				case "snapshot": {
 					if (!state.current) {
-						return { content: [text("⚠️ 没有当前工作记录，无法保存快照。")], details: {} };
+						return { content: [text("⚠️ No current work entry — cannot save snapshot.")], details: {} };
 					}
 
 					const snapshot: WorklogEntry = {
@@ -411,7 +411,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 					saveState(state);
 
 					return {
-						content: [text(`💾 断点快照已保存:\n${formatEntry(snapshot, "Breakpoint Snapshot")}`)],
+						content: [text(`💾 Breakpoint snapshot saved:\n${formatEntry(snapshot, "Breakpoint Snapshot")}`)],
 						details: {},
 					};
 				}
@@ -423,24 +423,24 @@ export function createTool(_cwd: string): AgentTool<any> {
 					const warnIfStale = (entry: WorklogEntry, label: string) => {
 						const ageMs = Date.now() - new Date(entry.timestamp).getTime();
 						if (entry.status !== "done" && entry.status !== "idle" && ageMs > 2 * 60 * 60 * 1000) {
-							parts.push(`⚠️ ${label} 记录已过 ${Math.round(ageMs / 3600000)}h，可能过时。如不对请 log 新内容。`);
+							parts.push(`⚠️ ${label} entry is ${Math.round(ageMs / 3600000)}h old, may be stale. log new content if wrong.`);
 						}
 					};
 
 					if (state.lastSession) {
-						warnIfStale(state.lastSession, "上一轮");
-						parts.push(formatEntry(state.lastSession, "上一轮工作（断点）"));
+						warnIfStale(state.lastSession, "last round");
+						parts.push(formatEntry(state.lastSession, "last round (breakpoint)"));
 					} else {
-						parts.push("📭 无上一轮工作记录");
+						parts.push("📭 No previous round on record");
 					}
 
 					parts.push("");
 
 					if (state.current) {
-						warnIfStale(state.current, "当前");
-						parts.push(formatEntry(state.current, "当前会话"));
+						warnIfStale(state.current, "current");
+						parts.push(formatEntry(state.current, "current session"));
 					} else {
-						parts.push("💤 当前无活跃工作记录");
+						parts.push("💤 No active work entry");
 					}
 
 					return { content: [text(parts.join("\n"))], details: {} };
@@ -448,24 +448,24 @@ export function createTool(_cwd: string): AgentTool<any> {
 
 				case "recover": {
 					if (!state.lastSession) {
-						return { content: [text("📭 无上一轮工作记录，无法恢复。")], details: {} };
+						return { content: [text("📭 No previous round to recover from.")], details: {} };
 					}
 
 					const entry = state.lastSession;
 					const parts: string[] = [];
-					parts.push("## 🔄 断点恢复信息");
+					parts.push("## 🔄 Session recovery info");
 					parts.push("");
-					parts.push(`**上次工作**: ${entry.activity}`);
-					if (entry.changes) parts.push(`**改动**: ${entry.changes}`);
-					if (entry.checkpoint) parts.push(`**Checkpoint**: ${entry.checkpoint} (可用 undo action=undo checkpoint=${entry.checkpoint} 恢复文件)`);
-					if (entry.context) parts.push(`**上下文**: ${entry.context}`);
-					if (entry.step) parts.push(`**阶段**: ${entry.step}`);
-					if (entry.files && entry.files.length > 0) parts.push(`**涉及文件**: ${entry.files.join(", ")}`);
-					if (entry.nextStep) parts.push(`**下一步**: ${entry.nextStep}`);
-					parts.push(`**时间**: ${entry.timestamp}`);
-					parts.push(`**状态**: ${entry.status}`);
+					parts.push(`**Last work**: ${entry.activity}`);
+					if (entry.changes) parts.push(`**Changes**: ${entry.changes}`);
+					if (entry.checkpoint) parts.push(`**Checkpoint**: ${entry.checkpoint} (restore files with undo action=undo checkpoint=${entry.checkpoint})`);
+					if (entry.context) parts.push(`**Context**: ${entry.context}`);
+					if (entry.step) parts.push(`**Step**: ${entry.step}`);
+					if (entry.files && entry.files.length > 0) parts.push(`**Files**: ${entry.files.join(", ")}`);
+					if (entry.nextStep) parts.push(`**Next**: ${entry.nextStep}`);
+					parts.push(`**Time**: ${entry.timestamp}`);
+					parts.push(`**Status**: ${entry.status}`);
 					parts.push("");
-					parts.push("💡 建议从这里继续。");
+					parts.push("💡 Suggested resume point.");
 
 					return { content: [text(parts.join("\n"))], details: {} };
 				}
@@ -477,17 +477,17 @@ export function createTool(_cwd: string): AgentTool<any> {
 						// List available checkpoints
 						const cps = listCheckpoints();
 						if (cps.length === 0) {
-							return { content: [text("📭 没有可用的 checkpoint。")], details: {} };
+							return { content: [text("📭 No checkpoints available.")], details: {} };
 						}
 						const lines = cps.map((cp, i) =>
 							`${i + 1}. **${cp.id}** (${cp.timestamp.slice(11, 19)}) → ${cp.files.join(", ")}`
 						);
-						return { content: [text(`📦 可用 checkpoint:\n${lines.join("\n")}`)], details: {} };
+						return { content: [text(`📦 Available checkpoints:\n${lines.join("\n")}`)], details: {} };
 					}
 
 					const cpId = backupFiles(files);
 					return {
-						content: [text(`💾 手动备份完成: ${cpId}\n📁 ${files.join(", ")}`)],
+						content: [text(`💾 Manual backup done: ${cpId}\n📁 ${files.join(", ")}`)],
 						details: {},
 					};
 				}
@@ -502,14 +502,14 @@ export function createTool(_cwd: string): AgentTool<any> {
 					// List checkpoints for user to pick
 					const cps = listCheckpoints();
 					if (cps.length === 0) {
-						return { content: [text("📭 没有可回退的 checkpoint。")], details: {} };
+						return { content: [text("📭 No checkpoints to roll back to.")], details: {} };
 					}
 
 					// Also show last session's checkpoint if any
 					const parts: string[] = [];
-					parts.push("📦 可回退的 checkpoint（最新在前）:");
+					parts.push("📦 Rollback checkpoints (newest first):");
 					parts.push("");
-					parts.push("恢复命令: `session-worklog action=undo checkpoint=<ID>`");
+					parts.push("Restore command: `session-worklog action=undo checkpoint=<ID>`");
 					parts.push("");
 					for (const cp of cps) {
 						parts.push(`**${cp.id}** (${cp.timestamp.slice(11, 19)})`);
@@ -521,7 +521,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 
 					// Also check history for checkpoint references
 					if (state.lastSession?.checkpoint) {
-						parts.push(`📌 上一轮的 checkpoint: ${state.lastSession.checkpoint}`);
+						parts.push(`📌 Previous round checkpoint: ${state.lastSession.checkpoint}`);
 					}
 
 					return { content: [text(parts.join("\n"))], details: {} };
@@ -529,11 +529,11 @@ export function createTool(_cwd: string): AgentTool<any> {
 
 				case "history": {
 					if (!existsSync(HISTORY_FILE)) {
-						return { content: [text("📭 无操作历史。")], details: {} };
+						return { content: [text("📭 No operation history.")], details: {} };
 					}
 					const lines = readFileSync(HISTORY_FILE, "utf-8").split("\n").filter(Boolean);
 					if (lines.length === 0) {
-						return { content: [text("📭 无操作历史。")], details: {} };
+						return { content: [text("📭 No operation history.")], details: {} };
 					}
 
 					// Show last 20 entries
@@ -552,7 +552,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 					});
 
 					return {
-						content: [text(`📋 最近 ${recent.length} 条操作历史:\n${recent.join("\n")}`)],
+						content: [text(`📋 Last ${recent.length} operations:\n${recent.join("\n")}`)],
 						details: {},
 					};
 				}
@@ -564,11 +564,11 @@ export function createTool(_cwd: string): AgentTool<any> {
 					state.current = null;
 					state.lastSession = null;
 					saveState(state);
-					return { content: [text("🗑️ 工作日志已清除（历史保留在归档中）。")], details: {} };
+					return { content: [text("🗑️ Work log cleared (history kept in archive).")], details: {} };
 				}
 
 				default:
-					return { content: [text(`未知操作: ${p.action}`)], details: {} };
+					return { content: [text(`Unknown action: ${p.action}`)], details: {} };
 			}
 		},
 	};

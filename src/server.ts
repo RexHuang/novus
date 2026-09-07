@@ -66,10 +66,10 @@ async function promptWithWatchdog(
 		if (last?.stopReason !== "error" || !errMsg || !isTransientConnectionError(errMsg)) {
 			return newMessages;
 		}
-		console.log(`[WATCHDOG] LLM 连接错误(${errMsg})，${attempt + 1}/${MAX_RETRIES} 自动重试...`);
+		console.log(`[WATCHDOG] LLM connection error (${errMsg}), auto-retry ${attempt + 1}/${MAX_RETRIES}...`);
 		// 累积已有消息（含错误的那条），注入 watchdog 继续提示后重试
 		messages = [...(messages ?? []), ...newMessages];
-		currentPrompt = "[watchdog] 上一次响应因连接错误中断。请继续完成之前的任务。";
+		currentPrompt = "[watchdog] The previous response was interrupted by a connection error. Please continue the previous task.";
 		await new Promise((r) => setTimeout(r, 2000));
 	}
 }
@@ -721,7 +721,7 @@ async function handleStreamChat(
 		});
 		console.log(`[SSE] agent.prompt returned ${newMessages.length} messages, hadTextDelta=${hadTextDelta}`);
 		if (!hadTextDelta) {
-			sendSse("error", { message: "AI 未返回任何回复内容。可能是 API 速率限制（429）或网络问题，请稍后重试。" });
+			sendSse("error", { message: "AI returned no content. Possibly API rate limit (429) or network issue — please retry." });
 		}
 		// 保存已生成的消息（即使被中断，partial 内容也有价值）
 		if (hadTextDelta) tenantSaveMessages(tenantId, sessionId, newMessages);

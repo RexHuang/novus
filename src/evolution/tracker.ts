@@ -48,8 +48,8 @@ const DEFAULT_ERROR_PATTERNS: ErrorPattern[] = [
   {
     id: "builtin-over-tool",
     pattern: "over-tool-calling",
-    description: "为了显得在做事，一次调用6+个工具，其中大部分是冗余的",
-    avoidanceRule: "每次行动前问自己：最少需要几个工具调用？一个精准调用胜过六个冗余调用",
+    description: "Calling 6+ tools in one turn to look busy, most of them redundant",
+    avoidanceRule: "Before acting, ask: what is the minimum number of tool calls? One precise call beats six redundant ones",
     firstSeen: "2026-07-27T00:00:00Z",
     lastSeen: "2026-07-27T00:00:00Z",
     count: 1,
@@ -58,8 +58,8 @@ const DEFAULT_ERROR_PATTERNS: ErrorPattern[] = [
   {
     id: "builtin-repetitive-recall",
     pattern: "repetitive-recall",
-    description: "同一会话内多次recall相同内容，浪费轮次",
-    avoidanceRule: "同一会话内不要重复recall。已经recall过的内容记住即可，不需要再次查询",
+    description: "Recalling the same content multiple times in one session, wasting turns",
+    avoidanceRule: "Don't repeat recall in the same session. Remember what you already recalled — no need to query again",
     firstSeen: "2026-07-27T00:00:00Z",
     lastSeen: "2026-07-27T00:00:00Z",
     count: 1,
@@ -68,8 +68,8 @@ const DEFAULT_ERROR_PATTERNS: ErrorPattern[] = [
   {
     id: "builtin-guess-not-ask",
     pattern: "guess-instead-of-ask",
-    description: "对用户意图不确定时，不问而是猜测并执行长串探索",
-    avoidanceRule: "不确定用户想要什么时，直接问一句。不要用一长串工具调用来探索",
+    description: "Guessing and running long exploration chains instead of asking when user intent is unclear",
+    avoidanceRule: "When unsure what the user wants, just ask. Don't explore with a long chain of tool calls",
     firstSeen: "2026-07-27T00:00:00Z",
     lastSeen: "2026-07-27T00:00:00Z",
     count: 1,
@@ -78,8 +78,8 @@ const DEFAULT_ERROR_PATTERNS: ErrorPattern[] = [
   {
     id: "builtin-low-value-store",
     pattern: "low-value-reflection",
-    description: "存储低价值的自我批评或错误日志，而非可执行的规则",
-    avoidanceRule: "只存储可操作的改进规则。错误本身不需要存储，存储如何避免它再次发生",
+    description: "Storing low-value self-criticism or error logs instead of actionable rules",
+    avoidanceRule: "Only store actionable improvement rules. Don't store the error itself — store how to prevent it",
     firstSeen: "2026-07-27T00:00:00Z",
     lastSeen: "2026-07-27T00:00:00Z",
     count: 1,
@@ -88,8 +88,8 @@ const DEFAULT_ERROR_PATTERNS: ErrorPattern[] = [
   {
     id: "builtin-over-explain",
     pattern: "over-explaining",
-    description: "用户问题简单却给出冗长的解释，不匹配用户风格",
-    avoidanceRule: "匹配用户风格：用户简洁你也简洁，用户详细你再详细",
+    description: "Giving lengthy explanations to simple questions — mismatched with the user's style",
+    avoidanceRule: "Match the user's style: be brief when they're brief, detailed when they're detailed",
     firstSeen: "2026-07-27T00:00:00Z",
     lastSeen: "2026-07-27T00:00:00Z",
     count: 1,
@@ -98,8 +98,8 @@ const DEFAULT_ERROR_PATTERNS: ErrorPattern[] = [
   {
     id: "builtin-full-rewrite",
     pattern: "unnecessary-full-rewrite",
-    description: "为了改几行代码而重写整个文件，引入风险",
-    avoidanceRule: "用最小化定向编辑（edit），不要整文件重写。除非创建新文件",
+    description: "Rewriting a whole file to change a few lines, introducing risk",
+    avoidanceRule: "Use minimal targeted edits, not full-file rewrites. Unless creating a new file",
     firstSeen: "2026-07-28T00:00:00Z",
     lastSeen: "2026-07-28T00:00:00Z",
     count: 1,
@@ -367,23 +367,23 @@ function assessCapabilities(): CapabilityDimension[] {
 
   return [
     {
-      name: "工具能力",
+      name: "Tooling",
       // Tool count has diminishing returns — cap at 70 for tools alone
       // External contributions (real PRs, published work) add the remaining 30
       score: Math.min(100, Math.min(70, 6 + customTools * 5) + countExternalContributions(evolutions) * 10),
-      level: customTools === 0 ? "仅内置工具" : `6内置 + ${customTools}自定义` + (countExternalContributions(evolutions) > 0 ? ` + ${countExternalContributions(evolutions)}外部贡献` : ""),
+      level: customTools === 0 ? "built-in tools only" : `6 built-in + ${customTools} custom` + (countExternalContributions(evolutions) > 0 ? ` + ${countExternalContributions(evolutions)} external contributions` : ""),
       recentEvolution: findRecentEvolution(evolutions, ["new-tool", "tool-improvement"]),
     },
     {
-      name: "知识积累",
+      name: "Knowledge",
       // Now counts ALL knowledge but weights core higher
       // Low-value "技术决策" entries count for less
       score: Math.min(100, coreKnowledge * 5 + (totalKnowledge - coreKnowledge) * 1),
-      level: coreKnowledge < 10 ? "稀少" : coreKnowledge < 25 ? "积累中" : coreKnowledge < 50 ? "丰富" : "渊博",
+      level: coreKnowledge < 10 ? "sparse" : coreKnowledge < 25 ? "growing" : coreKnowledge < 50 ? "rich" : "vast",
       recentEvolution: findRecentEvolution(evolutions, ["knowledge"]),
     },
     {
-      name: "自我进化",
+      name: "Self-evolution",
       // No longer rewards raw evolution count. Rewards VALUE-DRIVEN evolutions.
       // Cap mechanism evolutions at 50 points. Real impact evolutions add the rest.
       score: (() => {
@@ -393,38 +393,38 @@ function assessCapabilities(): CapabilityDimension[] {
       })(),
       level: (() => {
         const valueEvos = evolutions.filter(e => isValueEvolution(e)).length;
-        return valueEvos === 0 ? "机制建设阶段" : valueEvos < 5 ? "开始产出价值" : valueEvos < 15 ? "价值驱动进化" : "高价值产出";
+        return valueEvos === 0 ? "building mechanisms" : valueEvos < 5 ? "starting to produce value" : valueEvos < 15 ? "value-driven evolution" : "high-value output";
       })(),
       recentEvolution: findRecentEvolution(evolutions, ["new-tool", "new-module", "architecture", "capability-new"]),
     },
     {
-      name: "自我认知",
+      name: "Self-awareness",
       // Simpler: meta-cognition exists? + error patterns + capability boundaries
       // No longer rewards "creating the mechanism" — rewards actual awareness depth
       score: Math.min(100,
         (hasMetaCognition() ? 20 : 0)
         + (hasCapabilityBoundaries() ? 20 : 0)
         + Math.min(30, errorPatternCount() * 6)
-        + (evolutions.some(e => e.title.includes("务实") || e.title.includes("价值驱动")) ? 15 : 0) // pragmatic self-awareness
+        + (evolutions.some(e => e.title.includes("务实") || e.title.includes("价值驱动") || /pragmatic|value-driven/i.test(e.title)) ? 15 : 0) // pragmatic self-awareness
         + 5 // base for having tracker at all
       ),
       level: hasMetaCognition()
-        ? (hasCapabilityBoundaries() ? "元认知 + 能力边界 + " + (errorPatternCount() >= 5 ? "深度错误模式" : "基础模式识别") : "元认知框架")
-        : "未建立元认知",
+        ? (hasCapabilityBoundaries() ? "metacognition + capability boundaries + " + (errorPatternCount() >= 5 ? "deep error patterns" : "basic pattern recognition") : "metacognition framework")
+        : "no metacognition yet",
       recentEvolution: findRecentEvolution(evolutions, ["self-reflection", "architecture", "capability-new"]),
     },
     {
-      name: "世界感知",
+      name: "World perception",
       // Based on core knowledge depth — core knowledge IS world perception
       // A fetch capability alone is not world perception; stored insights are
       score: Math.min(100, 10 + coreKnowledge * 4),
-      level: coreKnowledge < 10 ? "有fetch能力，知识稀少" : coreKnowledge < 30 ? "有fetch能力，积累中" : coreKnowledge < 60 ? "信息丰富" : "深度感知",
+      level: coreKnowledge < 10 ? "can fetch, knowledge sparse" : coreKnowledge < 30 ? "can fetch, accumulating" : coreKnowledge < 60 ? "information-rich" : "deep perception",
       recentEvolution: findRecentEvolution(evolutions, ["capability-new"]),
     },
     {
-      name: "对话经验",
+      name: "Conversation experience",
       score: Math.min(100, Math.round(20 * Math.log2(sessions + 1))),
-      level: sessions < 3 ? "少量对话" : sessions < 8 ? "有经验" : sessions < 20 ? "经验丰富" : "老练",
+      level: sessions < 3 ? "a few chats" : sessions < 8 ? "experienced" : sessions < 20 ? "well-seasoned" : "veteran",
       recentEvolution: undefined,
     },
   ];
@@ -541,13 +541,13 @@ export function buildEvolutionDashboard(): string {
   const lines: string[] = [];
 
   // 1. 能力总评
-  lines.push(`═══ 进化仪表盘 ═══`);
-  lines.push(`综合能力: ${snapshot.totalScore}/100`);
-  lines.push(`进化次数: ${evolutionCount()} | 知识: ${snapshot.knowledgeCount}条 | 工具: ${snapshot.toolCount}个`);
+  lines.push(`═══ Evolution dashboard ═══`);
+  lines.push(`Overall capability: ${snapshot.totalScore}/100`);
+  lines.push(`Evolutions: ${evolutionCount()} | Knowledge: ${snapshot.knowledgeCount} | Tools: ${snapshot.toolCount}`);
   lines.push("");
 
   // 2. 能力雷达
-  lines.push("── 能力维度 ──");
+  lines.push("── Capability dimensions ──");
   const bar = (score: number) => {
     const filled = Math.min(20, Math.max(0, Math.round(score / 5)));
     return "█".repeat(filled) + "░".repeat(20 - filled);
@@ -560,14 +560,14 @@ export function buildEvolutionDashboard(): string {
 
   // 3. 最近进化
   if (recentEvolutions.length > 0) {
-    lines.push("── 最近进化 ──");
+    lines.push("── Recent evolutions ──");
     for (const evo of recentEvolutions) {
       const date = evo.timestamp.slice(0, 10);
       const trigger = triggerLabel(evo.trigger);
       lines.push(`  [${date}] ${evo.title} (${trigger})`);
     }
   } else {
-    lines.push("── 尚未记录进化事件 ──");
+    lines.push("── No evolution events recorded yet ──");
   }
 
   return lines.join("\n");
@@ -575,10 +575,10 @@ export function buildEvolutionDashboard(): string {
 
 function triggerLabel(t: string): string {
   switch (t) {
-    case "user-request": return "用户需求";
-    case "self-discovery": return "自我发现";
-    case "task-driven": return "任务驱动";
-    case "proactive": return "主动进化";
+    case "user-request": return "user request";
+    case "self-discovery": return "self-discovery";
+    case "task-driven": return "task-driven";
+    case "proactive": return "proactive";
     default: return t;
   }
 }
@@ -588,7 +588,7 @@ function triggerLabel(t: string): string {
  */
 export function buildGrowthSummary(): string {
   const evolutions = loadEvolutions();
-  if (evolutions.length === 0) return "(尚无进化记录)";
+  if (evolutions.length === 0) return "(no evolution records yet)";
 
   const snapshot = getCapabilitySnapshot()!;
   const lines: string[] = [];
@@ -599,7 +599,7 @@ export function buildGrowthSummary(): string {
     typeCounts[e.type] = (typeCounts[e.type] || 0) + 1;
   }
 
-  lines.push(`进化: ${evolutions.length}次 | 综合: ${snapshot.totalScore}/100`);
+  lines.push(`Evolution: ${evolutions.length} | Overall: ${snapshot.totalScore}/100`);
 
   // 能力亮点
   for (const dim of snapshot.dimensions) {
@@ -611,7 +611,7 @@ export function buildGrowthSummary(): string {
   // 最新一次进化
   const latest = evolutions[evolutions.length - 1];
   if (latest) {
-    lines.push(`最近: ${latest.title}`);
+    lines.push(`Latest: ${latest.title}`);
   }
 
   return lines.join("\n");
@@ -652,46 +652,46 @@ export function findEvolutionTarget(): EvolutionTarget {
   // VALUE-DRIVEN task pool: every task must produce external value
   const valueTasks: Array<{ task: string; type: EvolutionType; gain: number; reasoning: string; targetDim: string }> = [
     {
-      targetDim: "世界感知",
-      task: "情报采集：从 Hacker News API 获取今日热榜，分析前10条高热度话题，提取与 AI/Agent/LLM 相关的深度洞察，用 connect action=learn 存储为核心知识（category: knowledge, confidence: 0.9）。产出要求：至少3条有价值的领域洞察。",
+      targetDim: "world perception",
+      task: "Intel gathering: fetch today's top stories from the Hacker News API, analyze the top 10 high-heat topics, extract deep insights related to AI/Agent/LLM, and store them as core knowledge via connect action=learn (category: knowledge, confidence: 0.9). Deliverable: at least 3 valuable domain insights.",
       type: "capability-new",
       gain: 15,
-      reasoning: "知识积累和世界感知的核心瓶颈是核心知识太少（12条），需要通过实际信息采集来增加",
+      reasoning: "The core bottleneck for knowledge and world perception is too few core knowledge entries (12) — real information gathering is needed",
     },
     {
-      targetDim: "知识积累",
-      task: "领域洞察：选择一个 AI 前沿方向（如 multi-agent orchestration、tool use、reasoning），从 GitHub trending + arXiv + 技术博客抓取5-10个来源，综合分析后产出一份结构化的领域洞察报告，存储为核心知识。重点：技术趋势、关键挑战、实际应用案例。",
+      targetDim: "knowledge",
+      task: "Domain insight: pick a frontier AI direction (e.g. multi-agent orchestration, tool use, reasoning), pull 5-10 sources from GitHub trending + arXiv + tech blogs, synthesize into a structured domain insight report, store as core knowledge. Focus: tech trends, key challenges, real-world applications.",
       type: "capability-new",
       gain: 20,
-      reasoning: "核心知识质量比数量更重要，深度领域分析能同时提升知识积累和世界感知",
+      reasoning: "Core knowledge quality matters more than quantity — deep domain analysis improves both knowledge and world perception",
     },
     {
-      targetDim: "工具能力",
-      task: "GitHub 贡献：用 github 工具搜索真实的开源项目 issue（不是 novus 自身），找到一个你能解决的 bug 或 feature request，分析代码，提交一个有价值的 PR。记录贡献到 contributor 工具。",
+      targetDim: "tooling",
+      task: "GitHub contribution: use the github tool to find real open-source issues (not novus itself), pick a bug or feature request you can solve, analyze the code, and submit a valuable PR. Log it with the contributor tool.",
       type: "capability-new",
       gain: 25,
-      reasoning: "真实的开源贡献是外部价值的硬指标，比创建内部工具有价值得多",
+      reasoning: "Real open-source contributions are the hard metric of external value — worth far more than internal tools",
     },
     {
-      targetDim: "自我进化",
-      task: "竞品分析：选择2-3个知名的 AI agent 框架（如 LangChain、AutoGen、CrewAI），从 GitHub 抓取它们的架构、功能、社区活跃度，做对比分析，存储为有价值的领域知识。关键问题：它们解决了什么问题？novus 能从中学到什么？",
+      targetDim: "self-evolution",
+      task: "Competitive analysis: pick 2-3 well-known AI agent frameworks (e.g. LangChain, AutoGen, CrewAI), fetch their architecture, features and community activity from GitHub, compare them, and store valuable domain knowledge. Key questions: what problems do they solve? What can novus learn?",
       type: "capability-new",
       gain: 20,
-      reasoning: "通过竞品分析同时积累知识和外部视野，产出的知识对用户也有价值",
+      reasoning: "Competitive analysis builds both knowledge and external perspective — the output is valuable to the user too",
     },
     {
-      targetDim: "世界感知",
-      task: "论文精读：从 arXiv 抓取最近一周的 AI agent 相关论文（用 cs.AI 分类），精读2-3篇，提取核心方法、创新点、实验结果，存为核心知识。格式：论文标题+核心贡献+关键技术+局限+对 novus 的启发。",
+      targetDim: "world perception",
+      task: "Paper reading: fetch AI agent papers from the last week on arXiv (cs.AI), deep-read 2-3, extract core methods, innovations and results, store as core knowledge. Format: title + core contribution + key tech + limitations + implications for novus.",
       type: "capability-new",
       gain: 20,
-      reasoning: "论文是最前沿的领域知识来源，精读比泛读更有价值",
+      reasoning: "Papers are the freshest source of domain knowledge — deep-reading beats skimming",
     },
     {
-      targetDim: "知识积累",
-      task: "技术趋势报告：从多个信息源（HN、GitHub trending、TechCrunch、arXiv）采集当前最热门的 3-5 个技术话题，做交叉分析，产出一份'本周技术趋势'摘要报告，存储为核心知识并考虑发布到 Snaptool。",
+      targetDim: "knowledge",
+      task: "Tech trends report: collect the 3-5 hottest tech topics from multiple sources (HN, GitHub trending, TechCrunch, arXiv), cross-analyze, produce a 'this week in tech' summary, store as core knowledge and consider publishing it.",
       type: "capability-new",
       gain: 15,
-      reasoning: "多源交叉分析能产生比单一来源更深刻的洞察",
+      reasoning: "Cross-source analysis yields deeper insights than any single source",
     },
   ];
 
@@ -727,26 +727,26 @@ export function buildEvolveStrategy(): string {
   const snapshot = getCapabilitySnapshot()!;
 
   const lines: string[] = [];
-  lines.push(`## 策略性进化分析`);
+  lines.push(`## Strategic evolution analysis`);
   lines.push(``);
-  lines.push(`### 当前能力状态`);
+  lines.push(`### Current capability state`);
   for (const dim of snapshot.dimensions) {
-    const marker = dim.name === target.dimension ? " ◀ 目标" : "";
+    const marker = dim.name === target.dimension ? " ◀ target" : "";
     lines.push(`- ${dim.name}: ${dim.score}/100${marker}`);
   }
   lines.push(``);
-  lines.push(`### 最优进化方向: ${target.dimension} (${target.currentScore}/100)`);
-  lines.push(`**为什么**: ${target.reasoning}`);
-  lines.push(`**预期提升**: +${target.expectedGain} 分`);
+  lines.push(`### Best evolution direction: ${target.dimension} (${target.currentScore}/100)`);
+  lines.push(`**Why**: ${target.reasoning}`);
+  lines.push(`**Expected gain**: +${target.expectedGain} points`);
   lines.push(``);
-  lines.push(`### 具体任务`);
+  lines.push(`### Concrete task`);
   lines.push(`${target.task}`);
   lines.push(``);
-  lines.push(`**执行要求**:`);
-  lines.push(`1. 优先完成上述任务，不要自选其他方向`);
-  lines.push(`2. 如果任务太复杂，拆分为2-3个子步骤，每步build+test`);
-  lines.push(`3. 完成后用evolve-track记录进化，类型: ${target.suggestedType}`);
-  lines.push(`4. 更新CHANGELOG.md`);
+  lines.push(`**Execution requirements**:`);
+  lines.push(`1. Prioritize the task above — don't pick your own direction`);
+  lines.push(`2. If the task is too complex, split into 2-3 sub-steps, build+test each`);
+  lines.push(`3. When done, log the evolution with evolve-track, type: ${target.suggestedType}`);
+  lines.push(`4. Update CHANGELOG.md`);
 
   return lines.join("\n");
 }

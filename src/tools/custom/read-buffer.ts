@@ -16,14 +16,14 @@ import { readBuffer, clearBuffer, bufferLines, readScreenBuffer } from "../../ut
 export function createTool(cwd: string): AgentTool<any> {
   return {
     name: "session-buffer",
-    description: "仅当交互界面输出被截断时，用此工具还原终端缓冲区内容。注意：daemon 模式下缓冲区始终为空，此时请改用 read 工具读文件。支持 read/clear/lines/screen/full。", 
+    description: "Use only when interactive output was truncated — restores the terminal buffer. Note: in daemon mode the buffer is always empty; use the read tool for files instead. Actions: read/clear/lines/screen/full.", 
     label: "session-buffer",
     parameters: {
       type: "object",
       properties: {
         action: {
           type: "string",
-          description: "操作: read（默认）/ clear / lines / screen / full",
+          description: "action: read (default) / clear / lines / screen / full",
           enum: ["read", "clear", "lines", "screen", "full"],
         },
       },
@@ -34,7 +34,7 @@ export function createTool(cwd: string): AgentTool<any> {
       const action = p.action ?? "read";
 
       try {
-        const EMPTY_HINT = "📭 会话缓冲区为空 — 没有可读取的内容。如需读取文件，请使用 read 工具。";
+        const EMPTY_HINT = "📭 Session buffer is empty — nothing to read. Use the read tool for files.";
         switch (action) {
           case "read": {
             const content = readBuffer();
@@ -47,11 +47,11 @@ export function createTool(cwd: string): AgentTool<any> {
           }
           case "clear": {
             clearBuffer();
-            return { content: [{ type: "text", text: "✅ 缓冲区已清空" }], details: {} };
+            return { content: [{ type: "text", text: "✅ Buffer cleared" }], details: {} };
           }
           case "lines": {
             const n = bufferLines();
-            return { content: [{ type: "text", text: `缓冲区共 ${n} 行（上限50行）` }], details: {} };
+            return { content: [{ type: "text", text: `Buffer has ${n} lines (50 shown max)` }], details: {} };
           }
           case "screen": {
             const content = readScreenBuffer();
@@ -66,7 +66,7 @@ export function createTool(cwd: string): AgentTool<any> {
             if ((!bufContent || bufContent.trim().length === 0) && (!screenContent || screenContent.trim().length === 0)) {
               return { content: [{ type: "text", text: EMPTY_HINT }], details: {} };
             }
-            const combined = `=== Session Buffer (滚动日志) ===\n${bufContent}\n\n=== Screen Buffer (终端屏幕) ===\n${screenContent}`;
+            const combined = `=== Session Buffer (rolling log) ===\n${bufContent}\n\n=== Screen Buffer (terminal screen) ===\n${screenContent}`;
             return { content: [{ type: "text", text: combined }], details: {} };
           }
           default:

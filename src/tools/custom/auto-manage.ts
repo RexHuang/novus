@@ -52,7 +52,7 @@ function buildLearnReminder(task: AutonomousTask): string {
   }
   return [
     `⚠️ MANDATORY: Before calling auto-manage complete, you MUST call:`,
-    `   connect action=learn content="<你发现的关键情报摘要>" tags=[${learnTags}] source="任务: ${task.name}"`,
+    `   connect action=learn content="<summary of key intel you found>" tags=[${learnTags}] source="task: ${task.name}"`,
     `   Store ALL non-trivial findings, not just "nothing found". If you found useful data, learn it.`,
     ``,
   ].join("\n");
@@ -61,24 +61,24 @@ function buildLearnReminder(task: AutonomousTask): string {
 export function createTool(cwd: string): AgentTool<any> {
   return {
     name: "auto-manage",
-    description: "自主任务管理：注册、查看、执行、管理自主任务。让 novus 从被动工具变成主动 agent。",
+    description: "Autonomous task management: register, view, execute and manage autonomous tasks. Turns novus from a passive tool into a proactive agent.",
     label: "auto-manage",
     parameters: {
       type: "object",
       properties: {
         action: {
           type: "string",
-          description: "操作类型",
+          description: "Action type",
           enum: ["register", "list", "run", "complete", "fail", "pause", "resume", "delete", "history", "due", "quality"],
         },
         // register 参数
         name: {
           type: "string",
-          description: "任务名称（register 时必填）",
+          description: "Task name (required for register)",
         },
         instruction: {
           type: "string",
-          description: "任务指令——agent 执行时要做的事（register 时必填）",
+          description: "Task instruction — what the agent should do (required for register)",
         },
         trigger: {
           type: "string",
@@ -87,32 +87,32 @@ export function createTool(cwd: string): AgentTool<any> {
         },
         intervalHours: {
           type: "number",
-          description: "periodic 任务的间隔（小时），默认 24",
+          description: "Interval for periodic tasks (hours), default 24",
         },
         delayUntil: {
           type: "string",
-          description: "delay-until 任务的触发时间（ISO datetime），如 2026-08-07T09:00:00",
+          description: "Trigger time for delay-until tasks (ISO datetime), e.g. 2026-08-07T09:00:00",
         },
         eventCondition: {
           type: "string",
-          description: "event 触发条件描述",
+          description: "Event trigger condition description",
         },
         tags: {
           type: "string",
-          description: "逗号分隔的标签",
+          description: "Comma-separated tags",
         },
         // 通用参数
         taskId: {
           type: "string",
-          description: "任务ID（complete/fail/pause/resume/delete 时必填）",
+          description: "Task ID (required for complete/fail/pause/resume/delete)",
         },
         summary: {
           type: "string",
-          description: "执行结果摘要（complete/fail 时可选）",
+          description: "Execution result summary (optional, for complete/fail)",
         },
         status: {
           type: "string",
-          description: "按状态过滤（list 时可选）",
+          description: "Filter by status (optional, for list)",
           enum: ["active", "paused", "completed", "failed"],
         },
       },
@@ -321,7 +321,7 @@ export function createTool(cwd: string): AgentTool<any> {
               const streak = t.lowQualityStreak ?? 0;
               const status = avgQuality < 0.3 ? "⚠️ LOW" : avgQuality < 0.6 ? "🟡 MED" : "🟢 OK";
               const interval = t.intervalHours ? ` ${t.intervalHours}h` : "";
-              const streakWarn = streak >= 3 ? ` → 暂停风险!` : streak >= 2 ? ` → 已降频` : "";
+              const streakWarn = streak >= 3 ? ` → pause risk!` : streak >= 2 ? ` → throttled` : "";
               lines.push(`[${shortId(t.id)}] ${status} q=${avgQuality.toFixed(2)} streak=${streak}${interval}${streakWarn} | ${t.name}`);
               for (const h of recent) {
                 const q = (h as any).qualityScore ?? 0.5;

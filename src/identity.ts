@@ -244,13 +244,13 @@ function buildBoundaryAwareness(): string {
 			})
 			.join("\n");
 		parts.push(``);
-		parts.push(`### 🔍 行为模式 (${active.length} 活跃)`);
+		parts.push(`### 🔍 Behavior patterns (${active.length} active)`);
 		parts.push(rules);
 	}
 
 	if (resolved.length > 0) {
 		parts.push(``);
-		parts.push(`已控制 (${resolved.length}): ${resolved.map(e => e.pattern).join(", ")}`);
+		parts.push(`Resolved (${resolved.length}): ${resolved.map(e => e.pattern).join(", ")}`);
 	}
 
 	return parts.join("\n");

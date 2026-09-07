@@ -91,24 +91,24 @@ function handleLog(p: EvolveTrackParams) {
   });
 
   return {
-    content: [text(`🧬 进化已记录 #${event.id}
+    content: [text(`🧬 Evolution logged #${event.id}
 ${event.title}
-触发: ${event.trigger}
-类型: ${event.type}`)],
+trigger: ${event.trigger}
+type: ${event.type}`)],
     details: event,
   };
 }
 
 function formatSnapshot(snap: ReturnType<typeof updateCapabilitySnapshot>): string {
-  const lines = [`能力快照 [${snap.timestamp.slice(0, 16)}]`, `
-综合: ${snap.totalScore}/100`, `工具: ${snap.toolCount} | 知识: ${snap.knowledgeCount} | 进化: ${snap.evolutionCount}次`, ""];
+  const lines = [`Capability snapshot [${snap.timestamp.slice(0, 16)}]`, `
+overall: ${snap.totalScore}/100`, `tools: ${snap.toolCount} | knowledge: ${snap.knowledgeCount} | evolutions: ${snap.evolutionCount}`, ""];
 
   for (const dim of snap.dimensions) {
     const bar = "█".repeat(Math.round(dim.score / 5)) + "░".repeat(20 - Math.round(dim.score / 5));
     lines.push(`${dim.name.padEnd(8)} ${bar} ${dim.score}`);
     lines.push(`         ${dim.level}`);
     if (dim.recentEvolution) {
-      lines.push(`         最新: ${dim.recentEvolution}`);
+      lines.push(`         latest: ${dim.recentEvolution}`);
     }
     lines.push("");
   }
@@ -119,24 +119,24 @@ function formatSnapshot(snap: ReturnType<typeof updateCapabilitySnapshot>): stri
 function formatHistory(): string {
   const evolutions = loadEvolutions();
   if (evolutions.length === 0) {
-    return "暂无进化记录。使用 evolve-track action=log 记录第一次进化。";
+    return "No evolution records yet. Use evolve-track action=log to record the first one.";
   }
 
-  const lines = [`进化历史 (共${evolutions.length}次)`, ""];
+  const lines = [`Evolution history (${evolutions.length} total)`, ""];
 
   // 按时间倒序
   const sorted = [...evolutions].reverse();
   for (const evo of sorted) {
     const date = evo.timestamp.slice(0, 16);
     const triggerMap: Record<string, string> = {
-      "user-request": "用户需求",
-      "self-discovery": "自我发现",
-      "task-driven": "任务驱动",
-      proactive: "主动进化",
+      "user-request": "user request",
+      "self-discovery": "self-discovery",
+      "task-driven": "task-driven",
+      proactive: "proactive",
     };
     const trigger = triggerMap[evo.trigger] ?? evo.trigger;
     lines.push(`[${date}] ${evo.title}`);
-    lines.push(`  类型: ${evo.type} | 触发: ${trigger}`);
+    lines.push(`  type: ${evo.type} | trigger: ${trigger}`);
     if (evo.description) {
       lines.push(`  ${evo.description.slice(0, 100)}`);
     }

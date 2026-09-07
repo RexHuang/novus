@@ -382,27 +382,27 @@ function handleStats() {
 function handleAnalyze() {
 	const analysis = analyzeKnowledgeQuality();
 	const lines: string[] = [
-		`知识质量分析：${analysis.total} 条总计 | ${analysis.candidates.length} 条建议清理`,
+		`Knowledge quality: ${analysis.total} total | ${analysis.candidates.length} cleanup candidates`,
 		``,
-		`问题统计：`,
-		`  过程日志: ${analysis.issues.processLog} 条`,
-		`  对话碎片: ${analysis.issues.noise} 条`,
-		`  同主题重复: ${analysis.issues.duplicateTopic} 条`,
-		`  陈旧未引用: ${analysis.issues.stale} 条`,
+		`Issue breakdown:`,
+		`  process logs: ${analysis.issues.processLog}`,
+		`  conversational noise: ${analysis.issues.noise}`,
+		`  same-topic duplicates: ${analysis.issues.duplicateTopic}`,
+		`  stale unreferenced: ${analysis.issues.stale}`,
 		``,
 		`${analysis.recommendation}`,
 	];
 
 	if (analysis.candidates.length > 0) {
-		lines.push(``, `建议清理的条目（前15条）：`);
+		lines.push(``, `Top cleanup candidates:`);
 		for (const c of analysis.candidates.slice(0, 15)) {
 			const preview = c.content.substring(0, 60).replace(/\n/g, ' ');
 			lines.push(`  [${c.id}] ${c.category} | ${c.reason} | ${preview}...`);
 		}
 		if (analysis.candidates.length > 15) {
-			lines.push(`  ... 还有 ${analysis.candidates.length - 15} 条`);
+			lines.push(`  ... and ${analysis.candidates.length - 15} more`);
 		}
-		lines.push(``, `使用 action=prune ids=["id1","id2",...] 执行清理`);
+		lines.push(``, `Run action=prune ids=["id1","id2",...] to clean up`);
 	}
 
 	return {
@@ -418,7 +418,7 @@ function handlePrune(p: ConnectParams) {
 	}
 	const result = pruneEntries(ids);
 	return {
-		content: [text(`已清理 ${result.removed} 条知识（${ids.length} 条ID中匹配 ${result.removed} 条）`)],
+		content: [text(`Pruned ${result.removed} entries (matched ${result.removed} of ${ids.length} IDs)`)],
 		details: result,
 	};
 }
@@ -426,7 +426,7 @@ function handlePrune(p: ConnectParams) {
 function handleCompress() {
 	const groups = findCompressibleGroups(0.6);
 	if (groups.length === 0) {
-		return { content: [text("无可压缩条目 — 知识库中没有足够相似的条目。")], details: {} };
+		return { content: [text("Nothing to compress — no sufficiently similar entries in the knowledge base.")], details: {} };
 	}
 
 	const totalBefore = groups.reduce((s, g) => s + g.entries.length, 0);
@@ -451,7 +451,7 @@ function handleCompress() {
 	}
 
 	return {
-		content: [text(`已压缩 ${totalCompressed} 条 → ${mergedIds.length} 条 (${groups.length} 组)\n新增条目: ${mergedIds.join(", ")}`)],
+		content: [text(`Compressed ${totalCompressed} → ${mergedIds.length} entries (${groups.length} groups)\nNew entries: ${mergedIds.join(", ")}`)],
 		details: { groups: groups.length, totalCompressed, merged: mergedIds.length, mergedIds },
 	};
 }
@@ -473,11 +473,11 @@ function handleStoreExperience(p: ConnectParams) {
 	});
 
 	const lines: string[] = [
-		`🧠 情景记忆已存储 #${entry.id}`,
-		`  标题: ${entry.title}`,
-		`  场景: ${entry.scenario}`,
-		`  教训: ${entry.lessons.length > 0 ? entry.lessons.join("; ") : "无"}`,
-		`  标签: ${entry.tags.join(", ")}`,
+		`🧠 Experience stored #${entry.id}`,
+		`  title: ${entry.title}`,
+		`  scenario: ${entry.scenario}`,
+		`  lessons: ${entry.lessons.length > 0 ? entry.lessons.join("; ") : "none"}`,
+		`  tags: ${entry.tags.join(", ")}`,
 	];
 
 	return { content: [text(lines.join("\n"))], details: entry };
@@ -493,45 +493,45 @@ function handleRecallExperience(p: ConnectParams) {
 
 	if (results.length === 0) {
 		const stats = experienceStats();
-		return { content: [text(`没有匹配的情景记忆。\n\n🧠 情景记忆库: ${stats.total} 条经历 | 标签分布: ${Object.entries(stats.byTag).map(([k, v]) => k + ":" + v).join(", ")}`)], details: stats };
+		return { content: [text(`No matching experiences.\n\n🧠 experience store: ${stats.total} entries | tags: ${Object.entries(stats.byTag).map(([k, v]) => k + ":" + v).join(", ")}`)], details: stats };
 	}
 
 	const lines = results.map(e => {
 		const lessonStr = e.lessons.length > 0 ? "💡 " + e.lessons.join("; ") : "";
-		return `[${e.id}] ${e.timestamp.slice(0, 10)} | ${e.tags.join(",")} | ${e.title}\n  场景: ${e.scenario.slice(0, 80)} | 结果: ${e.outcome}\n  ${lessonStr}`;
+		return `[${e.id}] ${e.timestamp.slice(0, 10)} | ${e.tags.join(",")} | ${e.title}\n  scenario: ${e.scenario.slice(0, 80)} | outcome: ${e.outcome}\n  ${lessonStr}`;
 	});
 
-	return { content: [text(`🧠 ${results.length} 条相关经历:\n\n${lines.join("\n\n")}`)], details: { results } };
+	return { content: [text(`🧠 ${results.length} related experiences:\n\n${lines.join("\n\n")}`)], details: { results } };
 }
 
 function handleMetaMemory(p: ConnectParams) {
 	const report = metaMemory(p.query);
 	const lines: string[] = [
-		"🧠 元记忆报告",
+		"🧠 Meta-memory report",
 		"",
-		`📊 总览: ${report.summary.total}条知识 (核心${report.summary.core} + 日志${report.summary.log}) + ${report.summary.experiences}条经历`,
+		`📊 Overview: ${report.summary.total} knowledge (core ${report.summary.core} + log ${report.summary.log}) + ${report.summary.experiences} experiences`,
 		"",
-		"📁 分类覆盖:",
+		"📁 Category coverage:",
 	];
 	for (const [cat, info] of Object.entries(report.categories)) {
-		lines.push(`  ${cat}: ${info.count}条 | 均值信心${info.avgConfidence} | 均值引用${info.avgRefCount}`);
+		lines.push(`  ${cat}: ${info.count} | avg confidence ${info.avgConfidence} | avg refs ${info.avgRefCount}`);
 	}
-	lines.push("", "🏷️ 高频标签 TOP10:");
+	lines.push("", "🏷️ Top 10 tags:");
 	for (const { tag, count } of report.tagCloud.slice(0, 10)) {
 		lines.push(`  ${tag}: ${count}`);
 	}
 	if (p.query) {
 		const qh = report.queryHit;
-		lines.push("", `🔍 查询 "${qh.query}": ${qh.hit ? "✅ 命中" + qh.hitCount + "条 (相关度" + Math.round(qh.score * 100) + "%)" : "❌ 未命中 — 盲区!"}`);
+		lines.push("", `🔍 query "${qh.query}": ${qh.hit ? "✅ hit " + qh.hitCount + " (relevance " + Math.round(qh.score * 100) + "%)" : "❌ no hit — blind spot!"}`);
 		if (!qh.hit) {
-			lines.push(`  ⚠️ 知识库中缺乏关于"${p.query}"的内容，建议通过 learn action 补充`);
+			lines.push(`  ⚠️ Knowledge base lacks content on "${p.query}" — consider adding via learn action`);
 		}
 	}
-	lines.push("", "🏥 知识健康:");
-	lines.push(`  平均信心: ${report.health.avgConfidence}`);
-	lines.push(`  平均引用: ${report.health.avgRefCount}`);
-	lines.push(`  陈旧条目(30天+): ${report.health.staleEntries}`);
-	lines.push(`  孤儿条目(从未引用): ${report.health.orphanEntries}`);
-	lines.push(`  新鲜度: ${Math.round(report.health.knowledgeFreshness * 100)}%`);
+	lines.push("", "🏥 Knowledge health:");
+	lines.push(`  avg confidence: ${report.health.avgConfidence}`);
+	lines.push(`  avg refs: ${report.health.avgRefCount}`);
+	lines.push(`  stale entries (30d+): ${report.health.staleEntries}`);
+	lines.push(`  orphan entries (never referenced): ${report.health.orphanEntries}`);
+	lines.push(`  freshness: ${Math.round(report.health.knowledgeFreshness * 100)}%`);
 	return { content: [text(lines.join("\n"))], details: report };
 }

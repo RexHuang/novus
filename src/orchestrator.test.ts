@@ -109,8 +109,8 @@ describe("ChainOrchestrator", () => {
 
 		const summary = orch.getSummary(exec.id);
 		expect(summary).toContain("1/3");
-		expect(summary).toContain("1 跳过");
-		expect(summary).toContain("✅ 完成");
+		expect(summary).toContain("1 skipped");
+		expect(summary).toContain("✅ completed");
 	});
 
 	it("prune 清理旧记录", () => {

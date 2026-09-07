@@ -85,7 +85,7 @@ describe("redundancyDetector", () => {
 		detector.record("bash", { command: "ls" });
 		const warning = detector.check("bash", { command: "ls" });
 		expect(warning).not.toBeNull();
-		expect(warning).toContain("重复");
+		expect(warning).toContain("redundant");
 	});
 
 	it("不同参数不算重复", () => {
@@ -101,7 +101,7 @@ describe("redundancyDetector", () => {
 		detector.clear();
 		detector.record("read", { path: "a.ts" });
 		detector.record("bash", { command: "ls" });
-		expect(detector.summary()).toBe("调用模式正常");
+		expect(detector.summary()).toBe("call patterns normal");
 	});
 
 	it("summary 检测过多调用", () => {
@@ -111,14 +111,14 @@ describe("redundancyDetector", () => {
 			detector.record("bash", { command: `test${i}` });
 		}
 		expect(detector.summary()).toContain("bash");
-		expect(detector.summary()).toContain("可能过多");
+		expect(detector.summary()).toContain("possibly too many");
 	});
 });
 
 describe("routeAdvice", () => {
 	it("生成路由建议", () => {
 		const advice = routeAdvice("帮我修复bug并运行测试", ["read", "edit", "bash", "runtests"]);
-		expect(advice).toContain("意图识别");
+		expect(advice).toContain("Intent:");
 		expect(advice).toContain("code");
 	});
 });
@@ -127,7 +127,7 @@ describe("createTool (Agent Tool interface)", () => {
 	it("成功创建工具", () => {
 		const tool = createTool("/tmp");
 		expect(tool.name).toBe("smart-router");
-		expect(tool.description).toContain("智能路由");
+		expect(tool.description).toContain("Smart routing");
 		expect(tool.parameters.required).toContain("action");
 	});
 
@@ -159,6 +159,6 @@ describe("createTool (Agent Tool interface)", () => {
 	it("缺少 input 参数时返回错误", async () => {
 		const tool = createTool("/tmp");
 		const result = await tool.execute("test-4", { action: "route" });
-		expect((result.content[0] as any).text).toContain("缺少");
+		expect((result.content[0] as any).text).toContain("Missing");
 	});
 });

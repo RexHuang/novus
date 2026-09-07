@@ -72,7 +72,7 @@ export function pathOf(logId: string): string {
 /** 读取完整日志 */
 export function read(logId: string): string {
   const path = join(LOG_DIR, logId + ".log");
-  if (!existsSync(path)) return `[日志 ${logId} 不存在]`;
+  if (!existsSync(path)) return `[log ${logId} not found]`;
   return readFileSync(path, "utf-8");
 }
 
@@ -97,7 +97,7 @@ export function recent(n: number = 10): string[] {
 /** 生成精简的界面显示文本（只显示开头几行 + 结尾几行） */
 export function preview(logId: string, maxLines: number = 15): string {
   const path = join(LOG_DIR, logId + ".log");
-  if (!existsSync(path)) return `[日志 ${logId} 不存在]`;
+  if (!existsSync(path)) return `[log ${logId} not found]`;
 
   const lines = readFileSync(path, "utf-8").split("\n");
   const total = lines.length;
@@ -110,7 +110,7 @@ export function preview(logId: string, maxLines: number = 15): string {
   const tail = lines.slice(-Math.floor(maxLines / 2));
   return [
     ...head,
-    `... (中间 ${total - head.length - tail.length} 行已折叠，共计 ${total} 行)`,
+    `... (${total - head.length - tail.length} middle lines folded, ${total} total)`,
     ...tail,
   ].join("\n");
 }
@@ -118,5 +118,5 @@ export function preview(logId: string, maxLines: number = 15): string {
 /** 构建界面简洁引用文本 */
 export function ref(logId: string, name: string): string {
   const lc = lineCount(logId);
-  return `📋 [${logId}] ${name} — ${lc} 行已记录。\`view-log id=${logId}\` 查看完整内容`;
+  return `📋 [${logId}] ${name} — ${lc} lines recorded.\`view-log id=${logId}\` to view full content`;
 }

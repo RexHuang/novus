@@ -162,7 +162,7 @@ export class ChainOrchestrator {
 		);
 
 		const elapsed = Date.now() - active.startedAt;
-		return `\n\n## 🔗 工具链执行中: ${active.chain}\n${lines.join("\n")}\n耗时: ${(elapsed / 1000).toFixed(1)}s\n`;
+		return `\n\n## 🔗 Chain executing: ${active.chain}\n${lines.join("\n")}\nelapsed: ${(elapsed / 1000).toFixed(1)}s\n`;
 	}
 
 	/**
@@ -170,23 +170,23 @@ export class ChainOrchestrator {
 	 */
 	getSummary(execId: string): string {
 		const exec = this.executions.get(execId);
-		if (!exec) return "未找到执行记录";
+		if (!exec) return "execution record not found";
 
 		const done = exec.steps.filter((s) => s.status === "done").length;
 		const skipped = exec.steps.filter((s) => s.status === "skipped").length;
 		const errors = exec.steps.filter((s) => s.status === "error").length;
 		const totalDuration = exec.steps.reduce((sum, s) => sum + (s.duration ?? 0), 0);
 
-		const statusStr = exec.status === "completed" ? "✅ 完成"
-			: exec.status === "failed" ? "❌ 失败"
-			: "🔄 进行中";
+		const statusStr = exec.status === "completed" ? "✅ completed"
+			: exec.status === "failed" ? "❌ failed"
+			: "🔄 in progress";
 
 		return [
-			`链: ${exec.chain} ${statusStr}`,
-			`步骤: ${done}/${exec.steps.length} 完成${skipped > 0 ? `, ${skipped} 跳过` : ""}${errors > 0 ? `, ${errors} 错误` : ""}`,
-			`总耗时: ${(totalDuration / 1000).toFixed(1)}s`,
+			`chain: ${exec.chain} ${statusStr}`,
+			`steps: ${done}/${exec.steps.length} done${skipped > 0 ? `, ${skipped} skipped` : ""}${errors > 0 ? `, ${errors} errors` : ""}`,
+			`total time: ${(totalDuration / 1000).toFixed(1)}s`,
 			exec.status === "completed" && exec.completedAt
-				? `总执行: ${((exec.completedAt - exec.startedAt) / 1000).toFixed(1)}s`
+				? `total run: ${((exec.completedAt - exec.startedAt) / 1000).toFixed(1)}s`
 				: "",
 		].filter(Boolean).join("\n");
 	}
@@ -233,12 +233,12 @@ import { matchToolChain } from "./router.js";
 export function createTool(_cwd: string): AgentTool<any> {
 	return {
 		name: "chain-orchestrator",
-		description: `工具链编排器 — 管理工具链的执行生命周期。支持：
-- start: 启动一个工具链（自动从 router 匹配）
-- status: 查看当前活跃链的执行状态
-- summary: 获取已完成链的摘要
-- list: 列出所有执行记录
-- clear: 清空执行历史`,
+		description: `Chain orchestrator — manages tool chain execution lifecycle. Actions:
+- start: start a tool chain (auto-matched via router)
+- status: view active chain execution status
+- summary: get a summary of a completed chain
+- list: list all execution records
+- clear: clear execution history`,
 		label: "Chain Orchestrator",
 		parameters: {
 			type: "object",
@@ -246,15 +246,15 @@ export function createTool(_cwd: string): AgentTool<any> {
 				action: {
 					type: "string",
 					enum: ["start", "status", "summary", "list", "clear"],
-					description: "操作类型",
+					description: "Action type",
 				},
 				input: {
 					type: "string",
-					description: "用户输入（start 时必填，用于匹配工具链）",
+					description: "User input (required for start, used to match a chain)",
 				},
 				execId: {
 					type: "string",
-					description: "执行ID（summary 时可选）",
+					description: "Execution ID (optional, for summary)",
 				},
 			},
 			required: ["action"],
@@ -266,15 +266,15 @@ export function createTool(_cwd: string): AgentTool<any> {
 			switch (p.action) {
 				case "start": {
 					if (!p.input) {
-						return { content: [{ type: "text", text: "缺少 input 参数" }], details: {} };
+						return { content: [{ type: "text", text: "Missing input param" }], details: {} };
 					}
 					const chain = matchToolChain(p.input);
 					if (!chain) {
-						return { content: [{ type: "text", text: "未匹配到工具链。使用 smart-router 的 route 操作查看可用链。" }], details: {} };
+						return { content: [{ type: "text", text: "No chain matched. Use smart-router action=route to see available chains." }], details: {} };
 					}
 					const exec = orch.start(chain, p.input);
 					return {
-						content: [{ type: "text", text: `工具链 [${chain.name}] 已启动 (ID: ${exec.id})\n${exec.steps.map((s, i) => `  ${i + 1}. ${s.description} [${s.tool}]${s.optional ? " (可选)" : ""}`).join("\n")}` }],
+						content: [{ type: "text", text: `Chain [${chain.name}] started (ID: ${exec.id})\n${exec.steps.map((s, i) => `  ${i + 1}. ${s.description} [${s.tool}]${s.optional ? " (optional)" : ""}`).join("\n")}` }],
 						details: { execId: exec.id, chain: chain.name },
 					};
 				}
@@ -282,14 +282,14 @@ export function createTool(_cwd: string): AgentTool<any> {
 				case "status": {
 					const active = orch.getActive();
 					if (!active) {
-						return { content: [{ type: "text", text: "当前无活跃工具链" }], details: {} };
+						return { content: [{ type: "text", text: "no active tool chain" }], details: {} };
 					}
 					const lines = active.steps.map((s, i) => {
 						const icon = s.status === "done" ? "✅" : s.status === "active" ? "🔄" : s.status === "skipped" ? "⏭️" : s.status === "error" ? "❌" : "⬜";
 						return `${icon} ${i + 1}. ${s.description} [${s.tool}]${s.result ? ` → ${s.result}` : ""}`;
 					});
 					return {
-						content: [{ type: "text", text: `链: ${active.chain} (ID: ${active.id})\n${lines.join("\n")}\n耗时: ${((Date.now() - active.startedAt) / 1000).toFixed(1)}s` }],
+						content: [{ type: "text", text: `chain: ${active.chain} (ID: ${active.id})\n${lines.join("\n")}\nelapsed: ${((Date.now() - active.startedAt) / 1000).toFixed(1)}s` }],
 						details: { execId: active.id },
 					};
 				}
@@ -297,7 +297,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 				case "summary": {
 					const id = p.execId ?? orch.getActive()?.id;
 					if (!id) {
-						return { content: [{ type: "text", text: "无执行记录" }], details: {} };
+						return { content: [{ type: "text", text: "no execution records" }], details: {} };
 					}
 					return { content: [{ type: "text", text: orch.getSummary(id) }], details: {} };
 				}
@@ -306,18 +306,18 @@ export function createTool(_cwd: string): AgentTool<any> {
 					// 简单列出最近的执行
 					const status = orch.getActive();
 					if (status) {
-						return { content: [{ type: "text", text: `活跃: ${status.chain} (${status.id})` }], details: {} };
+						return { content: [{ type: "text", text: `active: ${status.chain} (${status.id})` }], details: {} };
 					}
-					return { content: [{ type: "text", text: "无活跃执行" }], details: {} };
+					return { content: [{ type: "text", text: "no active execution" }], details: {} };
 				}
 
 				case "clear": {
 					orch.clear();
-					return { content: [{ type: "text", text: "已清空" }], details: {} };
+					return { content: [{ type: "text", text: "cleared" }], details: {} };
 				}
 
 				default:
-					return { content: [{ type: "text", text: `未知操作: ${p.action}` }], details: {} };
+					return { content: [{ type: "text", text: `Unknown action: ${p.action}` }], details: {} };
 			}
 		},
 	};

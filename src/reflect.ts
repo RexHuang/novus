@@ -13,9 +13,9 @@ import type { AgentMessage } from "@earendil-works/pi-agent-core";
 
 /** Low-value content patterns that should be filtered before storing */
 const LOW_VALUE_PATTERNS = [
-  /^技术决策:\s*(好|决定|采用|使用|选择|改为|调整为|已完成|实现完成)\s/i,
-  /^改进规则:\s*(.*)/,
-  /^讨论要点:\s/i,
+  /^(?:技术决策|tech[- ]decision):\s*(?:好|决定|采用|使用|选择|改为|调整为|已完成|实现完成|good|decided|adopted|use|switched|done)\s/i,
+  /^(?:改进规则|improvement[- ]rule):\s*(.*)/i,
+  /^(?:讨论要点|discussion[- ]points?):\s/i,
 ];
 
 function isLowValueContent(content: string): boolean {
@@ -160,12 +160,12 @@ function extractFacts(
 
 	// Tech decisions — only high-value strategic decisions, not trivial implementation notes
 	for (const text of assistantTexts) {
-		const dm = text.match(/^(?:好，|决定|采用|使用|选择|改为|调整为|已完成|实现完成)(.+)/m);
+		const dm = text.match(/^(?:好，|决定|采用|使用|选择|改为|调整为|已完成|实现完成|OK[,，]?\s*|Decided?|Adopted?|Using?|Switched to|Done[:：]?)(.+)/im);
 		if (dm?.[1]) {
 			const decision = dm[1].slice(0, 200);
 			// Only store if it contains strategic keywords
-			if (decision.length > 30 && /全局|架构|核心|策略|重大|关键|价值|方向|目标/.test(decision)) {
-				const label = "技术决策: " + decision;
+			if (decision.length > 30 && /全局|架构|核心|策略|重大|关键|价值|方向|目标|global|architecture|core|strategy|major|key|value|direction|goal/i.test(decision)) {
+				const label = "tech-decision: " + decision;
 				if (!facts.some(f => f.content === label)) {
 					facts.push({ content: label, tags: ["decision"], category: "knowledge" });
 				}

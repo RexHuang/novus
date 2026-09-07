@@ -34,7 +34,7 @@ describe("情景记忆 - extractExperienceFromWorklog", () => {
 		expect(result).not.toBeNull();
 		expect(result!.title).toBe("修复175 relay进程堆积问题");
 		expect(result!.tags).toContain("debug");
-		expect(result!.outcome).toBe("成功");
+		expect(result!.outcome).toBe("success");
 	});
 
 	it("idle条目返回null", () => {
@@ -196,7 +196,7 @@ describe("自主执行引擎 - auto-execute", () => {
 		const text = (result.content[0] as any).text as string;
 		expect(text).toContain("Step 1/3");
 		expect(text).toContain("SSH");
-		expect(text).toContain("推断的工具链");
+		expect(text).toContain("Inferred tool chain");
 
 		// Cleanup
 		await planTool.execute("test-4", { action: "clear" });
@@ -217,7 +217,7 @@ describe("自主执行引擎 - auto-execute", () => {
 
 		const result = await planTool.execute("test-6", { action: "auto-execute" });
 		const text = (result.content[0] as any).text as string;
-		expect(text).toContain("修复");
+		expect(text).toContain("fix the code");
 
 		await planTool.execute("test-7", { action: "clear" });
 	});

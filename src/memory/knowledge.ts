@@ -554,16 +554,16 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 		const pattern = detectNoisePatterns(e.content);
 		if (pattern === "process-log") {
 			issues.processLog++;
-			candidates.push({ ...e, reason: "过程日志（非知识结论）" });
+			candidates.push({ ...e, reason: "Process log (not a knowledge conclusion)" });
 		} else if (pattern === "discussion-fragment") {
 			issues.noise++;
-			candidates.push({ ...e, reason: "对话过程碎片（非结论）" });
+			candidates.push({ ...e, reason: "Conversational fragments (not a conclusion)" });
 		} else if (pattern === "trivial") {
 			issues.noise++;
-			candidates.push({ ...e, reason: "内容过短（<20字）" });
+			candidates.push({ ...e, reason: "Content too short (<20 chars)" });
 		} else if (pattern === "empty-structure") {
 			issues.noise++;
-			candidates.push({ ...e, reason: "空结构化数据" });
+			candidates.push({ ...e, reason: "Empty structured data" });
 		}
 	}
 
@@ -577,7 +577,7 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 			const e = group[i];
 			if (!candidates.some(c => c.id === e.id)) {
 				issues.duplicateTopic++;
-				candidates.push({ ...e, reason: `同主题重复（保留最长版 ${group[0].id}）` });
+				candidates.push({ ...e, reason: `Duplicate of same topic (kept longest ${group[0].id})` });
 				deduplicatedIds.add(e.id);
 			}
 		}
@@ -591,7 +591,7 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 			: 999;
 		if (age > 30 && lastRef > 30 && e.confidence < 0.8 && !candidates.some(c => c.id === e.id)) {
 			issues.stale++;
-			candidates.push({ ...e, reason: "30天+未引用且低信心" });
+			candidates.push({ ...e, reason: "Unreferenced 30+ days with low confidence" });
 		}
 	}
 
@@ -600,13 +600,13 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 	const pruneCount = candidates.length;
 	let recommendation: string;
 	if (pruneCount === 0) {
-		recommendation = "知识库质量良好，无需清理。";
+		recommendation = "Knowledge base is healthy, no cleanup needed.";
 	} else if (pruneCount < total * 0.1) {
-		recommendation = `发现 ${pruneCount} 条低价值条目（${(pruneCount/total*100).toFixed(0)}%），建议清理。`;
+		recommendation = `Found ${pruneCount} low-value entries (${(pruneCount/total*100).toFixed(0)}%), cleanup recommended.`;
 	} else if (pruneCount < total * 0.3) {
-		recommendation = `发现 ${pruneCount} 条低价值条目（${(pruneCount/total*100).toFixed(0)}%），建议批量清理以提升知识密度。`;
+		recommendation = `Found ${pruneCount} low-value entries (${(pruneCount/total*100).toFixed(0)}%), batch cleanup recommended to improve density.`;
 	} else {
-		recommendation = `发现 ${pruneCount} 条低价值条目（${(pruneCount/total*100).toFixed(0)}%），知识库质量较低，建议深度清理。`;
+		recommendation = `Found ${pruneCount} low-value entries (${(pruneCount/total*100).toFixed(0)}%). Quality is low — deep cleanup recommended.`;
 	}
 
 	return { total, candidates, issues, recommendation };
@@ -707,7 +707,7 @@ export function compressGroup(group: KnowledgeEntry[]): CompressResult {
 	// 构建合并内容
 	let mergedContent = base.content;
 	if (extraInfo.length > 0) {
-		mergedContent += "\n\n【压缩补充】" + extraInfo.map((s, i) => `(${i + 1}) ${s}`).join("\n");
+		mergedContent += "\n\n[Compressed supplement] " + extraInfo.map((s, i) => `(${i + 1}) ${s}`).join("\n");
 	}
 
 	// 计算合并后的 confidence：取最高
@@ -977,7 +977,7 @@ export function migrateFromLegacy(): { migrated: number; core: number; log: numb
 		const content = entry.content;
 
 		// 自我批判和用户纠正 → 日志，低信心
-		if (content.startsWith("自我批判") || content.startsWith("用户纠正")) {
+		if (content.startsWith("自我批判") || content.startsWith("用户纠正") || content.startsWith("self-criticism") || content.startsWith("user correction")) {
 			const migrated: KnowledgeEntry = {
 				...entry,
 			category: "self-improvement",
@@ -1165,7 +1165,7 @@ export function extractExperienceFromWorklog(wle: {
 	if (wle.changes) {
 		// 提取"改为""加""去掉"等动词后的关键信息
 		const patterns = wle.changes.match(/(?:改为|改为|加|新增|去掉|移除|修复|改用)[^,;。]+/g);
-		if (patterns) lessons.push(...patterns.map(p => "改动: " + p.trim()));
+		if (patterns) lessons.push(...patterns.map(p => "changes: " + p.trim()));
 		// 如果有"避免"字样，直接提取为教训
 		const avoidPatterns = wle.changes.match(/避免[^,;。]+/g);
 		if (avoidPatterns) lessons.push(...avoidPatterns.map(p => p.trim()));
@@ -1175,7 +1175,7 @@ export function extractExperienceFromWorklog(wle: {
 		scenario: wle.step || tags.join(", "),
 		situation: wle.activity,
 		actions: wle.changes ? [wle.changes] : [],
-		outcome: wle.status === "done" ? "成功" : wle.status === "blocked" ? "受阻" : "进行中",
+		outcome: wle.status === "done" ? "success" : wle.status === "blocked" ? "blocked" : "in progress",
 		lessons,
 		sessionId: wle.sessionId,
 		tags,
@@ -1201,7 +1201,7 @@ export function experienceStats(): { total: number; byTag: Record<string, number
 	return {
 		total: entries.length,
 		byTag,
-		recent: entries[0]?.timestamp || "无",
+		recent: entries[0]?.timestamp || "none",
 	};
 }
 

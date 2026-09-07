@@ -367,7 +367,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			if (ctx.toolCall.name === runtimeLastToolName && runtimeConsecutiveErrors >= 4) {
 				return {
 					block: true,
-					reason: `[self-check] ⚠️ ${ctx.toolCall.name} 已连续失败 ${runtimeConsecutiveErrors} 次，继续重试不会改变结果。请换一个方法实现目标，或者先检查上一个调用的错误信息再尝试。`,
+					reason: `[self-check] ⚠️ ${ctx.toolCall.name} has failed ${runtimeConsecutiveErrors} times in a row. Retrying won't change the result. Try a different approach, or inspect the last call's error first.`,
 				};
 			}
 
@@ -376,7 +376,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			if (runtimeTurnCallCount > MAX_TOOL_CALLS_PER_TURN) {
 				return {
 					block: true,
-					reason: `[self-check] ⚠️ 本轮已调用 ${runtimeTurnCallCount} 个工具（上限 ${MAX_TOOL_CALLS_PER_TURN}）。请停止调用新工具，先用已有结果回答用户。如果还需要更多信息，等下一轮再获取。`,
+					reason: `[self-check] ⚠️ ${runtimeTurnCallCount} tools called this turn (limit ${MAX_TOOL_CALLS_PER_TURN}). Stop calling new tools — answer the user with what you already have. Fetch more next turn if truly needed.`,
 				};
 			}
 
@@ -388,7 +388,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				if (sameToolCount >= SAME_TOOL_WARN_THRESHOLD) {
 					return {
 						block: true,
-						reason: `[behavior-guard] ${ctx.toolCall.name} 已连续调用 ${sameToolCount} 次，请合并为一次调用或换一种方法。`,
+						reason: `[behavior-guard] ${ctx.toolCall.name} called ${sameToolCount} times in a row — merge into one call or try a different method.`,
 					};
 				}
 
@@ -396,7 +396,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				if (runtimeSessionCallCount >= SESSION_TOOL_BUDGET) {
 					return {
 						block: true,
-						reason: `[behavior-guard] 本session已调用 ${runtimeSessionCallCount} 次工具（预算${SESSION_TOOL_BUDGET}），请总结当前进度并告诉用户下一步计划。`,
+						reason: `[behavior-guard] ${runtimeSessionCallCount} tool calls this session (budget ${SESSION_TOOL_BUDGET}) — summarize progress and tell the user the next step.`,
 					};
 				}
 			}
@@ -458,7 +458,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				const compressed = compressMessages(existingMessages, fullContext.systemPrompt ?? "", modelContextWindow);
 				fullContext.messages = compressed.messages;
 				if (compressed.compressed) {
-					buf("[INFO] 上下文压缩：" + existingMessages.length + " → " + compressed.messages.length + " 条消息");
+					buf("[INFO] context compaction: " + existingMessages.length + " → " + compressed.messages.length + " messages");
 				}
 			}
 
@@ -625,7 +625,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 
 			let messageStarted = false;
 			// 思考阶段动态指示：在首个输出（文本/工具）前显示动画，避免终端“卡住”感
-			spinStart("🤔 思考中…");
+			spinStart("🤔 Thinking…");
 			let contextOverflowRetry = false;
 			let newMessages = await runAgentLoop([userMessage], fullContext, config, async (event) => {
 				if (event.type === "message_update" && event.assistantMessageEvent) {
@@ -712,8 +712,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 						}
 						// ── Context overflow auto-compress & retry ──
 						if (errMsg.includes("context_window") || errMsg.includes("token limit") || errMsg.includes("too large")) {
-							buf("[WARN] 上下文溢出，自动压缩历史消息并重试...");
-							process.stderr.write("\n\x1b[33m⚠️ 上下文溢出，压缩历史消息并重试...\x1b[0m\n");
+							buf("[WARN] Context overflow — auto-compacting history and retrying...");
+							process.stderr.write("\n\x1b[33m⚠️ Context overflow — compacting history and retrying...\x1b[0m\n");
 							const cw = (fullContext as any)._modelContextWindow ?? 200000;
 							const compressed2 = compressMessages(existingMessages ?? [], fullContext.systemPrompt ?? "", cw);
 							fullContext.messages = compressed2.messages;
@@ -733,7 +733,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 						hideStatus();
 						wasTruncated = true;
 						process.stderr.write("\n⚠️  Response truncated (max_tokens limit). Auto-continuing...\n");
-						buf("[WARN] 响应被截断 — max_tokens 不足，自动续写");
+						buf("[WARN] Response truncated — max_tokens too low, auto-continuing");
 					}
 					emitEvent(onEvent, { type: "message_end", stopReason: msg.stopReason });
 				}
@@ -744,8 +744,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 
 			// ── Context overflow retry ──
 			if (contextOverflowRetry && !wasAborted) {
-				buf("[INFO] 上下文压缩完成，重试 API 调用...");
-				process.stderr.write("\x1b[33m🔄 重试中...\x1b[0m\n");
+				buf("[INFO] Context compaction done, retrying API call...");
+				process.stderr.write("\x1b[33m🔄 Retrying...\x1b[0m\n");
 				contextOverflowRetry = false;
 				hadOutput = false;
 				messageStarted = false;
@@ -797,7 +797,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				if (hadOutput) writeOut("\n");
 				// Merge: replace newMessages with the retried version
 				newMessages.splice(0, newMessages.length, ...retriedMessages);
-				buf("[INFO] 重试完成，上下文已压缩");
+				buf("[INFO] Retry complete, context compacted");
 			}
 
 			// Auto-continue if response was truncated (max_tokens limit)
@@ -851,7 +851,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				} catch {
 					// If continue fails, keep the original truncated messages
 					hideStatus();
-					buf("[WARN] 自动续写失败，响应可能不完整");
+					buf("[WARN] Auto-continue failed — response may be incomplete");
 				}
 			}
 

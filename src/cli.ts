@@ -385,7 +385,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 		}
 	}
 
-	console.log(`novus ${sessionId.slice(0, 8)} • ESC=中断 Ctrl+D=退出`);
+	console.log(`novus ${sessionId.slice(0, 8)} • ESC=interrupt Ctrl+D=exit`);
 
 	// State shared with interrupt handler
 	let running = false;
@@ -476,16 +476,16 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 			// 防死循环：连续自动继续超过 5 次说明 API 持续故障，交回人工
 			if (watchdogFireCount >= 5) {
 				stopWatchdog();
-				console.error("\x1b[31m🐕 Watchdog: 已连续自动继续 " + watchdogFireCount + " 次，API 持续故障，等待人工介入\x1b[0m");
+				console.error("\x1b[31m🐕 Watchdog: auto-continued " + watchdogFireCount + " times, API keeps failing, handing back to human\x1b[0m");
 				return;
 			}
 			watchdogFired = true;
 			watchdogFireCount++;
 			stopWatchdog();
 			console.error("\x1b[33m🐕 Watchdog: " + reason + ", auto-continuing (#" + watchdogFireCount + ")...\x1b[0m");
-			buf("[watchdog] " + reason + "，自动继续");
+			buf("[watchdog] " + reason + ", auto-continue");
 			isWatchdogContinuation = true;
-			void runPrompt("[watchdog] 上一次响应因连接错误中断。请继续完成之前的任务。");
+			void runPrompt("[watchdog] The previous response was interrupted by a connection error. Please continue the previous task.");
 		};
 
 		const startWatchdog = (fast = false) => {
@@ -500,7 +500,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 				watchdogFastTimer = setTimeout(() => {
 					// Don't fire while user is typing
 					if (rl.line && rl.line.trim()) { stopWatchdog(); return; }
-					doWatchdogContinue("连接错误，快速恢复");
+					doWatchdogContinue("connection error, quick recovery");
 				}, WATCHDOG_FAST_DELAY_MS);
 				// Also start slow watchdog as fallback
 			}
@@ -520,7 +520,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 					if (Date.now() - lastBufferMtime > WATCHDOG_SLOW_TIMEOUT_MS) {
 						// Don't fire while user is typing
 						if (rl.line && rl.line.trim()) { lastBufferMtime = Date.now(); return; }
-						doWatchdogContinue("缓冲区超时无输出");
+						doWatchdogContinue("buffer timeout with no output");
 					}
 				} catch {
 					// buffer file missing — ignore
@@ -634,7 +634,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 				if (isWatchdogContinuation && !hasConnError) {
 					isWatchdogContinuation = false;
 					if (watchdogFireCount > 0) {
-						console.error("\x1b[32m🐕 Watchdog: 自动继续后任务推进正常，重置故障计数\x1b[0m");
+						console.error("\x1b[32m🐕 Watchdog: progress normal after auto-continue, resetting failure counter\x1b[0m");
 						watchdogFireCount = 0;
 					}
 				}
@@ -702,10 +702,10 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 				const result = reflectOnRecentSessions(3);
 				if (result.sessionsAnalyzed > 0 || result.newPatterns.length > 0 || result.updatedPatterns.length > 0) {
 					const parts: string[] = [];
-					if (result.newPatterns.length > 0) parts.push("新发现模式: " + result.newPatterns.join(", "));
-					if (result.updatedPatterns.length > 0) parts.push("更新模式: " + result.updatedPatterns.join(", "));
-					if (result.summaries.length > 0) parts.push("会话概要: " + result.summaries.join("; "));
-					console.log("\x1b[90m🧠 行为反射: " + parts.join(" | ") + "\x1b[0m");
+					if (result.newPatterns.length > 0) parts.push("new patterns: " + result.newPatterns.join(", "));
+					if (result.updatedPatterns.length > 0) parts.push("updated patterns: " + result.updatedPatterns.join(", "));
+					if (result.summaries.length > 0) parts.push("session summaries: " + result.summaries.join("; "));
+					console.log("\x1b[90m🧠 behavior reflection: " + parts.join(" | ") + "\x1b[0m");
 				}
 			} catch {
 				// silent
@@ -755,8 +755,8 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 					})
 					.map((m: any) => `[${m.from || "?"}] ${m.content || ""}`);
 				if (msgs.length === 0) return;
-				console.error("\n\x1b[36m📬 ws-comm: " + msgs.length + " 条新消息\x1b[0m");
-				void runPrompt("[ws-comm] 收到 " + msgs.length + " 条新消息:\n" + msgs.join("\n"));
+				console.error("\n\x1b[36m📬 ws-comm: " + msgs.length + " new message(s)\x1b[0m");
+				void runPrompt("[ws-comm] Received " + msgs.length + " new message(s):\n" + msgs.join("\n"));
 			} catch { /* silent */ }
 		}, 2000);
 	};
@@ -879,11 +879,11 @@ async function main(): Promise<void> {
 			console.error(`Task not found: ${args.exec}`);
 			process.exit(1);
 		}
-		const promptText = `执行自主任务 [${shortId(task.id)}]「${task.name}」。
-指令: ${task.instruction}
+		const promptText = `Execute autonomous task [${shortId(task.id)}] "${task.name}".
+Instruction: ${task.instruction}
 
-请按指令完成工作，完成后用 auto-manage action=complete taskId=${task.id} summary="结果摘要" 标记完成。
-只做不解释，不要输出多余内容。`;
+Complete the work per the instruction. When done, mark it complete with auto-manage action=complete taskId=${task.id} summary="result summary".
+Just do it, no extra commentary.`;
 		return runOneShot({ ...args, prompt: promptText });
 	}
 
