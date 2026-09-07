@@ -1,11 +1,11 @@
 /**
  * Core behavior regression tests
  *
- * 验证核心模块的关键行为不会被进化退化。
- * 每次进化后自动运行，确保：
- *   - 知识存储/查询/去重正常
- *   - 任务调度/质量评估正常
- *   - 进化追踪正常
+ * Verify key behaviors of core modules don't regress through evolution.
+ * Runs automatically after each evolution, ensuring:
+ *   - knowledge store/query/dedup work
+ *   - task scheduling/quality scoring work
+ *   - evolution tracking works
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -29,7 +29,7 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-// 使用临时目录隔离测试数据
+// use a temp dir to isolate test data
 const TEST_DIR = join(tmpdir(), "novus-test-" + process.pid);
 
 // ===== Knowledge Store Tests =====

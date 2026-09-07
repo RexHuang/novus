@@ -1,13 +1,13 @@
 /**
- * codebase-map — 代码地图工具
+ * codebase-map — codebase mapping tool
  *
- * 深度分析代码库结构：
- *   - map: 扫描目录结构 + 模块间依赖关系
- *   - deps: 分析指定文件的 import/require 依赖链
- *   - symbols: 提取文件中的导出函数/类/类型签名
+ * Deep codebase analysis:
+ *   - map: scan directory structure + inter-module dependencies
+ *   - deps: analyze the import/require chain of a given file
+ *   - symbols: extract exported functions/classes/types from a file
  *
- * 比 project.ts 更深入：project.ts 做启动时的浅层扫描，
- * codebase-map 做按需的深度分析。
+ * Deeper than project.ts: project.ts does a shallow scan at startup,
+ * codebase-map does on-demand deep analysis.
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
@@ -69,7 +69,7 @@ function scanSrcFiles(root: string, maxDepth: number = 4): string[] {
 	return files;
 }
 
-/** 提取文件中的 import 语句 */
+/** Extract import statements from a file */
 function extractImports(content: string, filePath: string): string[] {
 	const imports: string[] = [];
 	const lines = content.split("\n");
@@ -107,7 +107,7 @@ function extractImports(content: string, filePath: string): string[] {
 	return imports;
 }
 
-/** 提取文件中的 export 签名 */
+/** Extract export signatures from a file */
 function extractExports(content: string): string[] {
 	const exports: string[] = [];
 	const lines = content.split("\n");
@@ -133,7 +133,7 @@ function extractExports(content: string): string[] {
 	return exports;
 }
 
-/** 分析单个文件 */
+/** Analyze a single file */
 function analyzeFile(filePath: string): ModuleInfo {
 	const content = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
 	const loc = content.split("\n").length;
@@ -211,7 +211,7 @@ function handleMap(cwd: string, p: CodebaseMapParams) {
 
 	const modules = files.map(f => analyzeFile(f));
 
-	// 按目录分组
+	// group by directory
 	const byDir = new Map<string, ModuleInfo[]>();
 	for (const m of modules) {
 		const dir = relative(targetDir, m.path).includes("/")
@@ -221,7 +221,7 @@ function handleMap(cwd: string, p: CodebaseMapParams) {
 		byDir.get(dir)!.push(m);
 	}
 
-	// 统计总依赖
+	// count total dependencies
 	const totalImports = modules.reduce((s, m) => s + m.imports.length, 0);
 	const totalExports = modules.reduce((s, m) => s + m.exports.length, 0);
 	const totalLoc = modules.reduce((s, m) => s + m.loc, 0);
@@ -241,7 +241,7 @@ function handleMap(cwd: string, p: CodebaseMapParams) {
 		lines.push("");
 	}
 
-	// 高连接模块（被引用最多的）
+	// high-connectivity modules (most referenced)
 	const importCounts = new Map<string, number>();
 	for (const m of modules) {
 		for (const imp of m.imports) {

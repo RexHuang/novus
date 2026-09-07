@@ -1,5 +1,5 @@
 /**
- * project-memory tool — 让 agent 能读写项目档案
+ * project-memory tool — lets the agent read/write the project profile
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";

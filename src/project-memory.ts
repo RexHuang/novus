@@ -1,13 +1,13 @@
 /**
- * project-memory — 项目级持久化记忆
+ * project-memory — project-level persistent memory
  *
- * 解决问题：跨会话开发时，项目进度、决策、待办全靠临时看代码。
- * 本模块提供结构化的项目档案，让每次恢复会话时自动注入项目上下文。
+ * Problem: across dev sessions, project progress/decisions/todos lived only in ad-hoc code reading.
+ * This module provides a structured project profile, auto-injecting project context on session resume.
  *
- * 存储位置：~/.novus/projects/<project-slug>.json
- * 一个项目一个文件，与 session-context 互补：
- *   - session-context: "我当前在做什么"
- *   - project-memory:  "这个项目做到哪了"
+ * Storage: ~/.novus/projects/<project-slug>.json
+ * One file per project; complements session-context:
+ *   - session-context: "what I'm working on right now"
+ *   - project-memory:  "where this project stands"
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
@@ -36,21 +36,21 @@ export interface ProjectProfile {
   name: string;
   description: string;
   techStack: string[];
-  /** 模块进度 */
+  /** module progress */
   modules: ProjectModule[];
-  /** 关键决策记录 */
+  /** key decision records */
   decisions: ProjectDecision[];
-  /** 待办队列（优先级从高到低）*/
+  /** todo queue (high → low priority) */
   todo: string[];
-  /** 上次工作的文件 */
+  /** files from the last work session */
   lastFiles: string[];
-  /** 上次工作内容（一句话）*/
+  /** last work summary (one sentence) */
   lastWork: string;
-  /** 下一步计划 */
+  /** next step plan */
   nextStep: string;
-  /** 创建时间 */
+  /** created at */
   createdAt: string;
-  /** 最后更新时间 */
+  /** last updated at */
   updatedAt: string;
 }
 

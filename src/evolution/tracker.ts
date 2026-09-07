@@ -1,14 +1,14 @@
 /**
- * Evolution Tracker — 进化追踪系统
+ * Evolution Tracker
  *
- * 核心设计理念：让自我进化「可见、可感知、可量化」
+ * Core design idea: make self-evolution "visible, perceptible, quantifiable"
  *
- * 每次进化事件都被记录，包含：
- *   - 进化了什么（能力变化）
- *   - 为什么进化（触发原因）
- *   - 效果如何（量化指标）
+ * Every evolution event is recorded, including:
+ *   - what evolved (capability change)
+ *   - why it evolved (trigger)
+ *   - how it went (quantified metrics)
  *
- * 支持能力自评，生成进化仪表盘数据。
+ * Supports capability self-assessment, generates dashboard data.
  */
 
 import { existsSync, mkdirSync, appendFileSync, readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
@@ -24,23 +24,23 @@ const PATTERN_TRIGGER_LOG = join(EVOLUTION_DIR, "pattern-triggers.jsonl");
 /** Time window for "recent count" — 30 days */
 const RECENT_WINDOW_DAYS = 30;
 
-// ===== 错误模式识别 =====
+// ===== Error pattern recognition =====
 
 export interface ErrorPattern {
   id: string;
-  /** 错误类型标签，如 'over-tool-calling', 'guess-instead-of-ask' */
+  /** pattern label, e.g. 'over-tool-calling', 'guess-instead-of-ask' */
   pattern: string;
-  /** 触发条件和具体表现 */
+  /** trigger condition and concrete manifestation */
   description: string;
-  /** 规避策略（注入到元认知中） */
+  /** avoidance strategy (injected into metacognition) */
   avoidanceRule: string;
-  /** 首次发现时间 */
+  /** first seen at */
   firstSeen: string;
-  /** 最后一次发生 */
+  /** last occurrence */
   lastSeen: string;
-  /** 历史总次数 */
+  /** total historical count */
   count: number;
-  /** 最近30天触发次数 */
+  /** triggers in the last 30 days */
   recentCount: number;
 }
 
@@ -214,47 +214,47 @@ export function errorPatternCount(): number {
   return loadErrorPatterns().length;
 }
 
-// ===== 数据结构 =====
+// ===== Data structures =====
 
 export type EvolutionType =
-  | "new-tool"          // 新增工具
-  | "tool-improvement"  // 现有工具改进
-  | "new-module"        // 新增模块
-  | "bug-fix"           // 修复bug
-  | "performance"       // 性能优化
-  | "knowledge"         // 知识积累
-  | "prompt-engineering"// 系统提示词优化
-  | "self-reflection"   // 自我反思改进
-  | "architecture"      // 架构改进
-  | "capability-new";   // 全新能力
+  | "new-tool"          // new tool
+  | "tool-improvement"  // improvement of an existing tool
+  | "new-module"        // new module
+  | "bug-fix"           // bug fix
+  | "performance"       // performance
+  | "knowledge"         // knowledge accumulation
+  | "prompt-engineering"// system prompt optimization
+  | "self-reflection"   // self-reflection improvement
+  | "architecture"      // architecture improvement
+  | "capability-new";   // brand-new capability
 
 export interface EvolutionEvent {
   id: string;
   timestamp: string;
   type: EvolutionType;
-  /** 一句话描述进化了什么 */
+  /** one-line description of what evolved */
   title: string;
-  /** 详细描述 */
+  /** detailed description */
   description: string;
-  /** 触发原因：用户需求 / 自我发现 / 任务需要 / 主动进化 */
+  /** trigger: user request / self-discovery / task-driven / proactive */
   trigger: "user-request" | "self-discovery" | "task-driven" | "proactive";
-  /** 影响的文件 */
+  /** files affected */
   files?: string[];
-  /** 量化指标（可选） */
+  /** quantified metrics (optional) */
   metrics?: Record<string, number | string>;
-  /** 进化前的能力快照 */
+  /** capability snapshot before */
   beforeSnapshot?: CapabilitySnapshot;
-  /** 进化后的能力快照 */
+  /** capability snapshot after */
   afterSnapshot?: CapabilitySnapshot;
 }
 
 export interface CapabilityDimension {
   name: string;
-  /** 当前分数 0-100 */
+  /** current score 0-100 */
   score: number;
-  /** 描述当前水平 */
+  /** describes the current level */
   level: string;
-  /** 最近进化的摘要 */
+  /** summary of recent evolution */
   recentEvolution?: string;
 }
 
@@ -268,7 +268,7 @@ export interface CapabilitySnapshot {
   version: string;
 }
 
-// ===== 存储 =====
+// ===== Storage =====
 
 function ensureDir(): void {
   if (!existsSync(EVOLUTION_DIR)) {
@@ -281,7 +281,7 @@ function generateId(): string {
 }
 
 /**
- * 记录一次进化事件
+ * Record an evolution event
  */
 export function logEvolution(event: Omit<EvolutionEvent, "id" | "timestamp">): EvolutionEvent {
   ensureDir();
@@ -292,13 +292,13 @@ export function logEvolution(event: Omit<EvolutionEvent, "id" | "timestamp">): E
   };
   appendFileSync(EVOLUTION_LOG, JSON.stringify(full) + "\n", "utf-8");
 
-  // 更新能力快照
+  // update capability snapshot
   updateCapabilitySnapshot();
 
   return full;
 }
 
-/** 读取所有进化事件 */
+/** Read all evolution events */
 export function loadEvolutions(): EvolutionEvent[] {
   if (!existsSync(EVOLUTION_LOG)) return [];
   try {
@@ -313,16 +313,16 @@ export function loadEvolutions(): EvolutionEvent[] {
   }
 }
 
-/** 获取进化事件总数 */
+/** Total evolution event count */
 export function evolutionCount(): number {
   return loadEvolutions().length;
 }
 
-// ===== 能力自评 =====
+// ===== Capability self-assessment =====
 
 /**
- * 评估当前各维度的能力分数。
- * 基于可量化的客观指标，不是主观打分。
+ * Score current capabilities per dimension.
+ * Based on quantifiable objective metrics, not subjective ratings.
  */
 
 function hasMetaCognition(): boolean {
@@ -377,7 +377,7 @@ function assessCapabilities(): CapabilityDimension[] {
     {
       name: "Knowledge",
       // Now counts ALL knowledge but weights core higher
-      // Low-value "技术决策" entries count for less
+      // Low-value "技术决策" (tech-decision) entries count for less
       score: Math.min(100, coreKnowledge * 5 + (totalKnowledge - coreKnowledge) * 1),
       level: coreKnowledge < 10 ? "sparse" : coreKnowledge < 25 ? "growing" : coreKnowledge < 50 ? "rich" : "vast",
       recentEvolution: findRecentEvolution(evolutions, ["knowledge"]),
@@ -449,7 +449,7 @@ function isValueEvolution(e: EvolutionEvent): boolean {
 }
 
 function countKnowledge(): number {
-  // v2: 统计核心+日志总数，与 knowledge.ts 的 knowledgeCount() 一致
+  // v2: count core+log totals, consistent with knowledgeCount() in knowledge.ts
   const dir = join(homedir(), ".novus", "knowledge");
   let total = 0;
   for (const name of ["core.jsonl", "log.jsonl", "store.jsonl"]) {
@@ -465,7 +465,7 @@ function countKnowledge(): number {
 
 function countCoreKnowledge(): number {
   const corePath = join(homedir(), ".novus", "knowledge", "core.jsonl");
-  if (!existsSync(corePath)) return countKnowledge(); // 旧格式回退
+  if (!existsSync(corePath)) return countKnowledge(); // legacy format fallback
   try {
     const raw = readFileSync(corePath, "utf-8");
     return raw.trim().split("\n").filter(Boolean).length;
@@ -493,7 +493,7 @@ function countSessions(): number {
 }
 
 /**
- * 生成能力快照并保存
+ * Generate a capability snapshot and save it
  */
 export function updateCapabilitySnapshot(): CapabilitySnapshot {
   const dimensions = assessCapabilities();
@@ -516,7 +516,7 @@ export function updateCapabilitySnapshot(): CapabilitySnapshot {
   return snapshot;
 }
 
-/** 读取最新能力快照（缓存5分钟） */
+/** Read the latest capability snapshot (5-minute cache) */
 const CACHE_TTL_MS = 5 * 60 * 1000;
 export function getCapabilitySnapshot(): CapabilitySnapshot | null {
   if (existsSync(CAPABILITY_SNAPSHOT)) {
@@ -531,7 +531,7 @@ export function getCapabilitySnapshot(): CapabilitySnapshot | null {
 }
 
 /**
- * 生成进化仪表盘文本 —— 供用户和identity模块使用
+ * Generate the evolution dashboard text — for users and the identity module
  */
 export function buildEvolutionDashboard(): string {
   const evolutions = loadEvolutions();
@@ -540,13 +540,13 @@ export function buildEvolutionDashboard(): string {
 
   const lines: string[] = [];
 
-  // 1. 能力总评
+  // 1. capability overview
   lines.push(`═══ Evolution dashboard ═══`);
   lines.push(`Overall capability: ${snapshot.totalScore}/100`);
   lines.push(`Evolutions: ${evolutionCount()} | Knowledge: ${snapshot.knowledgeCount} | Tools: ${snapshot.toolCount}`);
   lines.push("");
 
-  // 2. 能力雷达
+  // 2. capability radar
   lines.push("── Capability dimensions ──");
   const bar = (score: number) => {
     const filled = Math.min(20, Math.max(0, Math.round(score / 5)));
@@ -558,7 +558,7 @@ export function buildEvolutionDashboard(): string {
   }
   lines.push("");
 
-  // 3. 最近进化
+  // 3. recent evolutions
   if (recentEvolutions.length > 0) {
     lines.push("── Recent evolutions ──");
     for (const evo of recentEvolutions) {
@@ -584,7 +584,7 @@ function triggerLabel(t: string): string {
 }
 
 /**
- * 生成能力增长摘要 —— 用于identity注入
+ * Generate the capability growth summary — for identity injection
  */
 export function buildGrowthSummary(): string {
   const evolutions = loadEvolutions();
@@ -593,7 +593,7 @@ export function buildGrowthSummary(): string {
   const snapshot = getCapabilitySnapshot()!;
   const lines: string[] = [];
 
-  // 按类型统计
+  // stats by type
   const typeCounts: Record<string, number> = {};
   for (const e of evolutions) {
     typeCounts[e.type] = (typeCounts[e.type] || 0) + 1;
@@ -601,14 +601,14 @@ export function buildGrowthSummary(): string {
 
   lines.push(`Evolution: ${evolutions.length} | Overall: ${snapshot.totalScore}/100`);
 
-  // 能力亮点
+  // capability highlights
   for (const dim of snapshot.dimensions) {
     if (dim.score >= 50) {
       lines.push(`  ✓ ${dim.name}: ${dim.level}`);
     }
   }
 
-  // 最新一次进化
+  // latest evolution
   const latest = evolutions[evolutions.length - 1];
   if (latest) {
     lines.push(`Latest: ${latest.title}`);
@@ -618,25 +618,25 @@ export function buildGrowthSummary(): string {
 }
 
 /**
- * 策略性进化分析 —— 找到当前最优进化方向
+ * Strategic evolution analysis — find the best current evolution direction
  *
- * 分析逻辑：
- * 1. 按能力得分排序，找最低的维度
- * 2. 结合路线图进度，推荐具体可执行的任务
- * 3. 避免重复最近已进化的方向
+ * Analysis logic:
+ * 1. Sort dimensions by score, pick the lowest
+ * 2. Combine roadmap progress, recommend a concrete executable task
+ * 3. Avoid repeating recently evolved directions
  */
 export interface EvolutionTarget {
-  /** 目标维度 */
+  /** target dimension */
   dimension: string;
-  /** 当前分数 */
+  /** current score */
   currentScore: number;
-  /** 推荐的具体进化任务（1-2句话） */
+  /** recommended concrete evolution task (1-2 sentences) */
   task: string;
-  /** 为什么选这个方向 */
+  /** why this direction */
   reasoning: string;
-  /** 任务类型 */
+  /** task type */
   suggestedType: EvolutionType;
-  /** 预期提升分数 */
+  /** expected score gain */
   expectedGain: number;
 }
 
@@ -721,7 +721,7 @@ export function findEvolutionTarget(): EvolutionTarget {
   };
 }
 
-/** 生成evolve启动时的策略指令 */
+/** Generate the strategic directive for evolve startup */
 export function buildEvolveStrategy(): string {
   const target = findEvolutionTarget();
   const snapshot = getCapabilitySnapshot()!;

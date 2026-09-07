@@ -1,12 +1,12 @@
 /**
- * Knowledge Store v2 — 分层记忆系统
+ * Knowledge Store v2 — Layered memory system
  *
- * 核心改进：
- *   1. 分层存储：核心知识（高价值持久）vs 对话日志（低价值可过期）
- *   2. 分类体系：knowledge / preference / fact / self-improvement / business
- *   3. 时间衰减：低价值记忆30天后自动降低权重
- *   4. 智能recall：按价值×相关度排序，而非纯时间
- *   5. 精简标签：不再存 used-xx/topic-xx 等噪音标签
+ * Key improvements:
+ *   1. Layered storage: core knowledge (high-value, persistent) vs conversation log (low-value, expirable)
+ *   2. Categories: knowledge / preference / fact / self-improvement / business
+ *   3. Time decay: low-value memory loses weight after 30 days
+ *   4. Smart recall: ranked by value × relevance, not pure recency
+ *   5. Lean tags: no more used-xx/topic-xx noise tags
  *
  * Storage: JSONL in ~/.novus/knowledge/
  */
@@ -16,38 +16,38 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeF
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// 支持环境变量覆盖（测试隔离用）；默认 ~/.novus/knowledge
+// Env var override supported (for test isolation); default ~/.novus/knowledge
 const KNOWLEDGE_DIR = process.env.NOVUS_KNOWLEDGE_DIR || join(homedir(), ".novus", "knowledge");
-const CORE_STORE = join(KNOWLEDGE_DIR, "core.jsonl");     // 高价值持久知识
-const LOG_STORE = join(KNOWLEDGE_DIR, "log.jsonl");       // 低价值对话日志
-const LEGACY_STORE = join(KNOWLEDGE_DIR, "store.jsonl"); // 旧格式（迁移用）
+const CORE_STORE = join(KNOWLEDGE_DIR, "core.jsonl");     // core knowledge (high-value, persistent)
+const LOG_STORE = join(KNOWLEDGE_DIR, "log.jsonl");       // conversation log (low-value)
+const LEGACY_STORE = join(KNOWLEDGE_DIR, "store.jsonl"); // legacy format (migration)
 
-// ===== 类型 =====
+// ===== Types =====
 
 export type KnowledgeCategory =
-	| "knowledge"        // 技术知识、概念、原理
-	| "preference"       // 用户偏好、工作习惯
-	| "fact"             // 具体事实：IP、路径、配置、URL
-	| "self-improvement" // 真正有价值的自我改进结论（不是自我批判）
-	| "business";        // 商业计划、产品信息、变现策略
+	| "knowledge"        // tech knowledge, concepts, principles
+	| "preference"       // user preferences, work habits
+	| "fact"             // concrete facts: IPs, paths, configs, URLs
+	| "self-improvement" // genuinely valuable self-improvement conclusions (not self-criticism)
+	| "business";        // business plans, product info, monetization
 
 export interface KnowledgeEntry {
 	id: string;
-	/** 内容 */
+	/** content */
 	content: string;
-	/** 来源 */
+	/** source */
 	source: string;
-	/** 分类 */
+	/** category */
 	category: KnowledgeCategory;
-	/** 手动标签（不含噪音） */
+	/** manual tags (no noise) */
 	tags: string[];
-	/** 创建时间 */
+	/** created at */
 	timestamp: string;
-	/** 信心/重要度 0-1 */
+	/** confidence/importance 0-1 */
 	confidence: number;
-	/** 引用计数 — 被recall命中过几次 */
+	/** ref count — how many times hit by recall */
 	refCount?: number;
-	/** 最后被引用的时间 */
+	/** last referenced at */
 	lastReferenced?: string;
 }
 
@@ -58,21 +58,21 @@ export interface KnowledgeQuery {
 	source?: string;
 	minConfidence?: number;
 	limit?: number;
-	/** 排序: "value" (价值×相关度), "recent", "confidence" */
+	/** sort: "value" (value × relevance), "recent", "confidence" */
 	sortBy?: "value" | "recent" | "confidence";
-	/** 只查核心知识（默认true） */
+	/** core only (default true) */
 	coreOnly?: boolean;
 }
 
-// ===== 基础操作 =====
+// ===== Basic ops =====
 
 function ensureDir(): void {
 	if (!existsSync(KNOWLEDGE_DIR)) mkdirSync(KNOWLEDGE_DIR, { recursive: true });
 }
 
-/** 判断条目应该存核心库还是日志 */
+/** Decide whether an entry goes to the core store or the log */
 function isCoreEntry(entry: { category: KnowledgeCategory; confidence: number }): boolean {
-	// 低信心 + 非知识/事实 → 日志
+	// low confidence + not knowledge/fact → log
 	if (entry.confidence < 0.7 && (entry.category === "self-improvement")) return false;
 	return true;
 }
@@ -101,7 +101,7 @@ function saveEntries(path: string, entries: KnowledgeEntry[]): void {
 	writeFileSync(path, entries.map(e => JSON.stringify(e)).join("\n") + "\n", "utf-8");
 }
 
-/** 时间衰减系数：低价值记忆30天后降到0.3，90天后降到0.1 */
+/** Time decay: low-value memory drops to 0.3 after 30 days, 0.1 after 90 */
 function timeDecay(entry: KnowledgeEntry): number {
 	const ageMs = Date.now() - new Date(entry.timestamp).getTime();
 	const ageDays = ageMs / (1000 * 60 * 60 * 24);
@@ -111,38 +111,38 @@ function timeDecay(entry: KnowledgeEntry): number {
 	return 0.1;
 }
 
-/** 生成内容指纹（用于去重） */
+/** Content fingerprint (for dedup) */
 function contentHash(content: string): string {
 	return createHash("sha256").update(content.trim()).digest("hex").slice(0, 12);
 }
 
-/** 检查内容是否已存在（基于内容指纹） */
+/** Check if content already exists (by fingerprint) */
 function isDuplicate(content: string, entries: KnowledgeEntry[]): boolean {
 	const hash = contentHash(content);
 	return entries.some(e => contentHash(e.content) === hash);
 }
 
-/** 检查内容是否有意义（非空 JSON、非纯过程记录） */
+/** Check whether content is meaningful (non-empty JSON, not a pure process log) */
 function isMeaningful(content: string, tags: string[]): boolean {
 	const trimmed = content.trim();
 	if (trimmed.length < 10) return false;
 
-	// 拒绝过程日志（非知识结论）
+	// reject process logs (not knowledge conclusions)
 	if (/^高强度工作轮/.test(trimmed)) return false;
 	if (/^技术决策:\s*(我来看看|我先看看|我看到|我来分析|我来认真|我们)/.test(trimmed)) return false;
-	// 拒绝过程性碎片（短句，无实质内容）
+	// reject process fragments (short sentences with no substance)
 	if (/^技术决策:\s*[\u4e00-\u9fff]{1,12}$/.test(trimmed)) return false;
-	// 拒绝测试用内容
+	// reject test content
 	if (/^测试去重/.test(trimmed)) return false;
 
-	// 拒绝空 plan JSON
+	// reject empty plan JSON
 	if (trimmed.startsWith("{")) {
 		try {
 			const obj = JSON.parse(trimmed);
 			if (obj && typeof obj === "object") {
-				// 空 plan: {goal: "", steps: []}
+				// empty plan: {goal: "", steps: []}
 				if (obj.goal === "" && Array.isArray(obj.steps) && obj.steps.length === 0) return false;
-				// 无意义结构: 只有元数据没有内容
+				// meaningless structure: metadata only, no content
 				if (!obj.goal && Array.isArray(obj.steps) && obj.steps.length === 0) return false;
 			}
 		} catch { /* not JSON, that's fine */ }
@@ -151,11 +151,11 @@ function isMeaningful(content: string, tags: string[]): boolean {
 	return true;
 }
 
-/** 检查是否应该降级到 log（而非核心库） */
+/** Check whether it should be demoted to log (instead of core) */
 function shouldDemoteToLog(content: string, tags: string[]): boolean {
-	// discussion-points 是对话过程记录，不是结论
+	// discussion-points are conversation process records, not conclusions
 	if (tags.includes("discussion-points")) return true;
-	// 重复的 plan JSON 也降级
+	// duplicate plan JSON also gets demoted
 	if (tags.includes("plan") && content.startsWith("{")) {
 		try {
 			const obj = JSON.parse(content);
@@ -165,7 +165,7 @@ function shouldDemoteToLog(content: string, tags: string[]): boolean {
 	return false;
 }
 
-/** 清理噪音标签 */
+/** Clean noise tags */
 function cleanTags(tags: string[]): string[] {
 	return tags.filter(t =>
 		!t.startsWith("used-") &&
@@ -178,9 +178,9 @@ function cleanTags(tags: string[]): string[] {
 	);
 }
 
-// ===== 公共API =====
+// ===== Public API =====
 
-/** 存储新知识 — 自动判断分层，自动清理标签，去重 */
+/** Store new knowledge — auto layering, tag cleanup, dedup */
 export function storeKnowledge(entry: {
 	content: string;
 	source?: string;
@@ -192,12 +192,12 @@ export function storeKnowledge(entry: {
 
 	const tags = cleanTags(entry.tags ?? []);
 
-	// 守卫1: 拒绝无意义内容
+	// guard 1: reject meaningless content
 	if (!isMeaningful(entry.content, tags)) {
 		return null;
 	}
 
-	// 守卫2: 去重（检查核心库+日志库）
+	// guard 2: dedup (check core + log stores)
 	const allEntries = [...loadEntries(CORE_STORE), ...loadEntries(LOG_STORE)];
 	if (isDuplicate(entry.content, allEntries)) {
 		return null;
@@ -217,7 +217,7 @@ export function storeKnowledge(entry: {
 		refCount: 0,
 	};
 
-	// 守卫3: discussion-points 和空 plan 降级到 log
+	// guard 3: discussion-points and empty plans demoted to log
 	const forceLog = shouldDemoteToLog(entry.content, tags);
 	const core = forceLog ? false : isCoreEntry(full);
 	const path = getStorePath(core);
@@ -225,29 +225,29 @@ export function storeKnowledge(entry: {
 	return full;
 }
 
-/** 根据内容自动推断分类 */
+/** Infer category from content */
 function inferCategory(content: string, tags: string[]): KnowledgeCategory {
 	const c = content.toLowerCase();
 
-	// 偏好/习惯
+	// preferences/habits
 	if (/以后|每次|下次|记住|习惯|偏好|不要.*要/.test(content) ||
 		tags.includes("user-preference") || tags.includes("user-habit")) {
 		return "preference";
 	}
 
-	// 事实
+	// facts
 	if (/^(?:ssh|服务器ip|路径|远程部署|产品url|项目名|配置)/.test(content) ||
 		tags.some(t => ["ssh", "server", "infrastructure", "deployment", "path", "product", "url", "config"].includes(t))) {
 		return "fact";
 	}
 
-	// 商业
+	// business
 	if (/月入|变现|商业|snaptool|snaptools|营收|定价|订阅|客户/.test(c) ||
 		tags.some(t => ["business", "snaptool", "monetization"].includes(t))) {
 		return "business";
 	}
 
-	// 自我改进（只保留真正的改进结论，不是自我批判）
+	// self-improvement (only real improvement conclusions, not self-criticism)
 	if (/^(?:自我改进|进化|改进|优化|升级)/.test(content) ||
 		tags.includes("self-improvement")) {
 		return "self-improvement";
@@ -256,7 +256,7 @@ function inferCategory(content: string, tags: string[]): KnowledgeCategory {
 	return "knowledge";
 }
 
-/** 写回引用计数更新到磁盘（延迟批量写入，避免频繁IO） */
+/** Write ref-count updates back to disk (batched, avoids frequent IO) */
 let pendingRefUpdates = new Map<string, { refCount: number; lastReferenced: string }>();
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -266,7 +266,7 @@ function flushRefUpdates(): void {
 	pendingRefUpdates.clear();
 	if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
 
-	// 只更新核心库（日志库不追踪引用）
+	// only the core store tracks references
 	const path = CORE_STORE;
 	if (!existsSync(path)) return;
 	const entries = loadEntries(path);
@@ -282,7 +282,7 @@ function flushRefUpdates(): void {
 	if (changed) saveEntries(path, entries);
 }
 
-/** 安排延迟写回（100ms内的多次recall合并为一次写入） */
+/** Schedule a deferred write-back (multiple recalls within 100ms merge into one write) */
 function scheduleRefFlush(): void {
 	if (flushTimer) return;
 	flushTimer = setTimeout(() => {
@@ -291,7 +291,7 @@ function scheduleRefFlush(): void {
 	}, 100);
 }
 
-/** 查询知识 — 默认按价值排序，支持结果去重 */
+/** Query knowledge — sorted by value, with result dedup */
 export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): KnowledgeEntry[] {
 	const coreOnly = q.coreOnly !== false;
 
@@ -299,28 +299,28 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 	let logEntries = coreOnly ? [] : loadEntries(LOG_STORE);
 	let entries = [...coreEntries, ...logEntries];
 
-	// 按分类过滤
+	// filter by category
 	if (q.category) {
 		entries = entries.filter(e => e.category === q.category);
 	}
 
-	// 按标签过滤
+	// filter by tags
 	if (q.tags && q.tags.length > 0) {
 		entries = entries.filter(e => q.tags!.some(t => e.tags.includes(t)));
 	}
 
-	// 按来源过滤
+	// filter by source
 	if (q.source) {
 		const src = q.source.toLowerCase();
 		entries = entries.filter(e => e.source.toLowerCase().includes(src));
 	}
 
-	// 最低信心
+	// minimum confidence
 	if (q.minConfidence !== undefined) {
 		entries = entries.filter(e => e.confidence >= q.minConfidence!);
 	}
 
-	// 文本搜索 + 评分
+	// text search + scoring
 	if (q.query) {
 		const queryTokens = tokenize(q.query);
 		const scored = entries.map(e => {
@@ -333,13 +333,13 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 					if (qt.startsWith(et) && et !== qt) relevance += 0.3;
 				}
 			}
-			// 价值 = 信心 × 时间衰减 × (1 + 引用加成)
+			// value = confidence × time decay × (1 + reference bonus)
 			const refBonus = Math.min((e.refCount ?? 0) * 0.05, 0.3);
 			const value = e.confidence * timeDecay(e) * (1 + refBonus) * (0.5 + relevance);
 			return { entry: e, relevance, value };
 		}).filter(s => s.relevance > 0);
 
-		// 更新引用计数并安排延迟写回
+		// update ref count and schedule deferred write-back
 		for (const s of scored.slice(0, 5)) {
 			s.entry.refCount = (s.entry.refCount ?? 0) + 1;
 			s.entry.lastReferenced = new Date().toISOString();
@@ -354,7 +354,7 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 		scored.sort((a, b) => b.value - a.value);
 		entries = scored.map(s => s.entry);
 		} else {
-		// 按其他排序时也用scored的relevance过滤
+		// non-value sorts also filter by relevance
 		entries = scored.map(s => s.entry);
 		if (q.sortBy === "confidence") {
 			entries.sort((a, b) => b.confidence - a.confidence);
@@ -363,7 +363,7 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 		}
 		}
 	} else {
-		// 无搜索词时的排序
+		// sort order when there is no search query
 		if (q.sortBy === "confidence") {
 			entries.sort((a, b) => b.confidence - a.confidence);
 		} else {
@@ -371,7 +371,7 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 		}
 	}
 
-	// 结果去重：相似条目只保留最佳
+	// result dedup: keep only the best of similar entries
 	if (q.deduplicate !== false && q.query && entries.length > 1) {
 		entries = deduplicateResults(entries, 0.55);
 	}
@@ -383,7 +383,7 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 	return entries;
 }
 
-/** 对召回结果去重：相似条目（Jaccard > threshold）分组，每组只保留最高分 */
+/** Dedup recall results: group similar entries (Jaccard > threshold), keep highest score per group */
 function deduplicateResults(entries: KnowledgeEntry[], threshold: number = 0.55): KnowledgeEntry[] {
 	if (entries.length <= 1) return entries;
 	
@@ -407,13 +407,13 @@ function deduplicateResults(entries: KnowledgeEntry[], threshold: number = 0.55)
 		groups.push(group);
 	}
 	
-	// 每组保留最佳条目（按内容长度优先，因为更长通常更完整）
+	// keep the best entry per group (prefer longer content, usually more complete)
 	const results: KnowledgeEntry[] = [];
 	for (const group of groups) {
 		if (group.length === 1) {
 			results.push(group[0]!);
 		} else {
-			// 选内容最长的（最完整），标记有重复
+			// pick the longest content (most complete), mark as duplicate
 			group.sort((a, b) => b.content.length - a.content.length);
 			const best = { ...group[0]! };
 			best.tags = [...best.tags, `merged:${group.length - 1}`];
@@ -424,17 +424,17 @@ function deduplicateResults(entries: KnowledgeEntry[], threshold: number = 0.55)
 	return results;
 }
 
-/** 获取总数（核心+日志） */
+/** Total count (core + log) */
 export function knowledgeCount(): number {
 	return loadEntries(CORE_STORE).length + loadEntries(LOG_STORE).length;
 }
 
-/** 获取核心知识数 */
+/** Core knowledge count */
 export function coreKnowledgeCount(): number {
 	return loadEntries(CORE_STORE).length;
 }
 
-/** 获取各类别统计 */
+/** Per-category stats */
 export function knowledgeStats(): { total: number; core: number; log: number; byCategory: Record<string, number> } {
 	const core = loadEntries(CORE_STORE);
 	const log = loadEntries(LOG_STORE);
@@ -446,7 +446,7 @@ export function knowledgeStats(): { total: number; core: number; log: number; by
 	return { total: all.length, core: core.length, log: log.length, byCategory };
 }
 
-/** 清理过期日志（超过90天的低价值记忆） */
+/** Clean expired log entries (low-value memory older than 90 days) */
 export function pruneExpired(): number {
 	const logEntries = loadEntries(LOG_STORE);
 	const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
@@ -456,16 +456,16 @@ export function pruneExpired(): number {
 	return removed;
 }
 
-// ===== 知识质量分析 =====
+// ===== Knowledge quality analysis =====
 
 export interface PruneAnalysis {
-	/** 总条目数 */
+	/** total entries */
 	total: number;
-	/** 低价值条目（建议清理） */
+	/** low-value entries (cleanup candidates) */
 	candidates: PruneCandidate[];
-	/** 各类问题统计 */
+	/** per-issue stats */
 	issues: { noise: number; duplicateTopic: number; processLog: number; stale: number };
-	/** 建议 */
+	/** recommendation */
 	recommendation: string;
 }
 
@@ -480,18 +480,18 @@ export interface PruneCandidate {
 	reason: string;
 }
 
-/** 模式匹配：检测明显低价值的内容 */
+/** Pattern matching: detect obviously low-value content */
 function detectNoisePatterns(content: string): string | null {
 	const c = content.trim();
-	// "高强度工作轮" — 纯过程日志
+	// "高强度工作轮" (intense-work-round) — pure process log
 	if (/^高强度工作轮/.test(c)) return "process-log";
-	// "技术决策: 我先看看/我来分析" — 行动过程，不是结论
+	// "技术决策: 我先看看" (tech-decision: let me look) — action process, not a conclusion
 	if (/^技术决策:\s*(我来看看|我先看看|我来看看|我来分析|我看到)/.test(c)) return "process-log";
-	// "讨论要点:" 开头的长对话过程记录
+	// long conversation-process records starting with "讨论要点:" (discussion points)
 	if (/^讨论要点[:：]/.test(c) && c.length > 200) return "discussion-fragment";
-	// 纯结构化JSON（plan步骤列表等），非知识
+	// pure structured JSON (plan step lists etc.), not knowledge
 	if (/^\s*\[.*\]\s*$/.test(c) && c.length < 100) return "empty-structure";
-	// 过短的"knowledge"类内容（小于20字）
+	// too-short "knowledge" content (<20 chars)
 	if (c.length < 20) return "trivial";
 	return null;
 }
@@ -539,7 +539,7 @@ function findTopicDuplicates(entries: KnowledgeEntry[]): Map<string, KnowledgeEn
 	return groups;
 }
 
-/** 分析知识库质量，返回建议清理的条目 */
+/** Analyze knowledge-base quality, return cleanup candidates */
 export function analyzeKnowledgeQuality(): PruneAnalysis {
 	const core = loadEntries(CORE_STORE);
 	const log = loadEntries(LOG_STORE);
@@ -549,7 +549,7 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 	const candidates: PruneCandidate[] = [];
 	const issues = { noise: 0, duplicateTopic: 0, processLog: 0, stale: 0 };
 
-	// 1. 噪音检测：明显低价值模式
+	// 1. noise detection: obviously low-value patterns
 	for (const e of all) {
 		const pattern = detectNoisePatterns(e.content);
 		if (pattern === "process-log") {
@@ -567,11 +567,11 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 		}
 	}
 
-	// 2. 同主题重复检测（保留最长的版本）
+	// 2. same-topic duplicate detection (keep the longest version)
 	const duplicates = findTopicDuplicates(all);
 	const deduplicatedIds = new Set<string>();
 	for (const [, group] of duplicates) {
-		// 按内容长度排序，保留最长的
+		// sort by content length, keep the longest
 		group.sort((a, b) => b.content.length - a.content.length);
 		for (let i = 1; i < group.length; i++) {
 			const e = group[i];
@@ -583,7 +583,7 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 		}
 	}
 
-	// 3. 陈旧检测：>30天未被引用且低信心
+	// 3. staleness: unreferenced >30 days with low confidence
 	for (const e of all) {
 		const age = (now - new Date(e.timestamp).getTime()) / 86400000;
 		const lastRef = e.lastReferenced
@@ -595,7 +595,7 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 		}
 	}
 
-	// 生成建议
+	// build recommendation
 	const total = all.length;
 	const pruneCount = candidates.length;
 	let recommendation: string;
@@ -612,7 +612,7 @@ export function analyzeKnowledgeQuality(): PruneAnalysis {
 	return { total, candidates, issues, recommendation };
 }
 
-/** 执行清理：删除指定的条目 */
+/** Execute cleanup: delete the given entries */
 export function pruneEntries(ids: string[]): { removed: number } {
 	let removed = 0;
 	for (const store of [CORE_STORE, LOG_STORE]) {
@@ -626,25 +626,25 @@ export function pruneEntries(ids: string[]): { removed: number } {
 	return { removed };
 }
 
-/** 清空所有（危险） */
+/** Clear everything (dangerous) */
 export function clearKnowledge(): void {
 	for (const p of [CORE_STORE, LOG_STORE, LEGACY_STORE]) {
 		if (existsSync(p)) unlinkSync(p);
 	}
 }
 
-// ===== 知识压缩 =====
+// ===== Knowledge compression =====
 
 export interface CompressResult {
 	compressed: number;
 	merged: number;
-	/** 被合并的条目ID列表 */
+	/** IDs of merged entries */
 	removedIds: string[];
-	/** 新创建的合并条目 */
+	/** the newly created merged entry */
 	newEntry?: KnowledgeEntry;
 }
 
-/** 查找可压缩的条目组（相似度 > 0.6，同分类） */
+/** Find compressible groups (similarity > 0.6, same category) */
 export function findCompressibleGroups(minSimilarity: number = 0.6): Array<{ entries: KnowledgeEntry[]; avgSimilarity: number }> {
 	const core = loadEntries(CORE_STORE);
 	if (core.length < 2) return [];
@@ -682,11 +682,11 @@ export function findCompressibleGroups(minSimilarity: number = 0.6): Array<{ ent
 	return groups;
 }
 
-/** 压缩一组相似条目：合并为一条摘要，删除原条目 */
+/** Compress a group of similar entries: merge into one summary, remove originals */
 export function compressGroup(group: KnowledgeEntry[]): CompressResult {
 	if (group.length < 2) return { compressed: 0, merged: 0, removedIds: [] };
 
-	// 合并内容：最长条目作基础，附加其他条目的独特信息
+	// merge content: longest entry as base, append unique info from others
 	const sorted = [...group].sort((a, b) => b.content.length - a.content.length);
 	const base = sorted[0]!;
 	const extraTags = new Set<string>();
@@ -695,7 +695,7 @@ export function compressGroup(group: KnowledgeEntry[]): CompressResult {
 	for (let i = 1; i < sorted.length; i++) {
 		const e = sorted[i]!;
 		for (const t of e.tags) extraTags.add(t);
-		// 提取不在 base 中的独特短语
+		// extract unique phrases not in base
 		const baseTokens = tokenize(base.content);
 		const eTokens = tokenize(e.content);
 		const uniqueTokens = [...eTokens].filter(t => !baseTokens.has(t) && t.length > 1);
@@ -704,19 +704,19 @@ export function compressGroup(group: KnowledgeEntry[]): CompressResult {
 		}
 	}
 
-	// 构建合并内容
+	// build merged content
 	let mergedContent = base.content;
 	if (extraInfo.length > 0) {
 		mergedContent += "\n\n[Compressed supplement] " + extraInfo.map((s, i) => `(${i + 1}) ${s}`).join("\n");
 	}
 
-	// 计算合并后的 confidence：取最高
+	// merged confidence: take the max
 	const maxConfidence = Math.max(...group.map(e => e.confidence));
-	// 累积引用计数
+	// accumulate ref counts
 	const totalRefs = group.reduce((sum, e) => sum + (e.refCount ?? 0), 0);
-	// 最早的时间戳
+	// earliest timestamp
 	const oldest = group.map(e => e.timestamp).sort()[0]!;
-	// 合并标签
+	// merge tags
 	const allTags = [...new Set([...base.tags, ...extraTags])].filter(t => !t.startsWith("merged:"));
 	allTags.push(`compressed:${group.length}`);
 
@@ -739,7 +739,7 @@ export function compressGroup(group: KnowledgeEntry[]): CompressResult {
 	};
 }
 
-/** 执行知识压缩：查找并压缩所有可合并的组 */
+/** Run knowledge compression: find and compress all mergeable groups */
 export function compressAllKnowledge(minSimilarity: number = 0.6): { groups: number; totalCompressed: number; totalMerged: number } {
 	const groups = findCompressibleGroups(minSimilarity);
 	if (groups.length === 0) return { groups: 0, totalCompressed: 0, totalMerged: 0 };
@@ -757,10 +757,10 @@ export function compressAllKnowledge(minSimilarity: number = 0.6): { groups: num
 		if (result.newEntry) newEntries.push(result.newEntry);
 	}
 
-	// 删除被合并的旧条目
+	// delete merged old entries
 	pruneEntries(allRemovedIds);
 
-	// 写入新的合并条目
+	// write the new merged entry
 	for (const e of newEntries) {
 		appendFileSync(CORE_STORE, JSON.stringify(e) + "\n", "utf-8");
 	}
@@ -768,14 +768,14 @@ export function compressAllKnowledge(minSimilarity: number = 0.6): { groups: num
 	return { groups: groups.length, totalCompressed, totalMerged };
 }
 
-// ===== 主动召回（会话上下文）=====
+// ===== Proactive recall (session context) =====
 
-/** 从记忆库中提取"你应该知道"的上下文，用于注入 system prompt */
+/** Extract "what you should know" context from memory, injected into the system prompt */
 export function getContextualMemory(maxEntries: number = 8): string {
 	const core = loadEntries(CORE_STORE);
 	if (core.length === 0) return "";
 
-	// 按价值排序：confidence × timeDecay × (1 + refBonus)
+	// sort by value: confidence × timeDecay × (1 + refBonus)
 	const scored = core.map(e => {
 		const refBonus = Math.min((e.refCount ?? 0) * 0.05, 0.3);
 		const value = e.confidence * timeDecay(e) * (1 + refBonus);
@@ -783,7 +783,7 @@ export function getContextualMemory(maxEntries: number = 8): string {
 	});
 	scored.sort((a, b) => b.value - a.value);
 
-	// 取 top N，去重
+	// take top N, dedup
 	const topEntries = deduplicateResults(
 		scored.slice(0, maxEntries * 2).map(s => s.entry),
 		0.6
@@ -792,7 +792,7 @@ export function getContextualMemory(maxEntries: number = 8): string {
 	if (topEntries.length === 0) return "";
 
 	const lines: string[] = [];
-	// 按分类分组
+	// group by category
 	const byCategory: Record<string, KnowledgeEntry[]> = {};
 	for (const e of topEntries) {
 		(byCategory[e.category] ??= []).push(e);
@@ -822,24 +822,24 @@ export function flushPendingRefs(): void {
 	flushRefUpdates();
 }
 
-// ===== 元记忆系统 (Meta-Memory) =====
+// ===== Meta-Memory system =====
 //
-// 让AI知道“自己知道什么”和“自己不知道什么”。
-// 分析知识库覆盖度，识别盲区，提供召回质量评估。
+// Lets the AI know "what it knows" and "what it doesn't know".
+// Analyzes knowledge-base coverage, detects blind spots, provides recall quality assessment.
 
 export interface MetaMemoryReport {
-	/** 知识库总览 */
+	/** knowledge base overview */
 	summary: {
 		total: number;
 		core: number;
 		log: number;
 		experiences: number;
 	};
-	/** 分类覆盖 */
+	/** category coverage */
 	categories: Record<string, { count: number; avgConfidence: number; avgRefCount: number }>;
-	/** 高频标签（标签云，反映知识面） */
+	/** frequent tags (tag cloud, reflects knowledge breadth) */
 	tagCloud: Array<{ tag: string; count: number }>;
-	/** 盲区检测：查询是否命中任何知识 */
+	/** blind-spot detection: does a query hit any knowledge */
 	queryHit: {
 		query: string;
 		hit: boolean;
@@ -847,17 +847,17 @@ export interface MetaMemoryReport {
 		score: number;
 		bestCategory: string;
 	};
-	/** 知识健康指标 */
+	/** knowledge health metrics */
 	health: {
 		avgConfidence: number;
 		avgRefCount: number;
-		staleEntries: number; // 30天以上未被引用
-		orphanEntries: number; // 从未被引用过的
-		knowledgeFreshness: number; // 0-1, 越高越新鲜
+		staleEntries: number; // unreferenced for 30+ days
+		orphanEntries: number; // never referenced
+		knowledgeFreshness: number; // 0-1, higher = fresher
 	};
 }
 
-/** 生成元记忆报告 */
+/** Generate a meta-memory report */
 export function metaMemory(query?: string): MetaMemoryReport {
 	const coreEntries = loadEntries(CORE_STORE);
 	const logEntries = loadEntries(LOG_STORE);
@@ -865,7 +865,7 @@ export function metaMemory(query?: string): MetaMemoryReport {
 	const all = [...coreEntries, ...logEntries];
 	const now = Date.now();
 
-	// 分类覆盖
+	// category coverage
 	const categories: Record<string, { count: number; totalConf: number; totalRef: number }> = {};
 	for (const e of all) {
 		if (!categories[e.category]) categories[e.category] = { count: 0, totalConf: 0, totalRef: 0 };
@@ -874,7 +874,7 @@ export function metaMemory(query?: string): MetaMemoryReport {
 		categories[e.category].totalRef += e.refCount ?? 0;
 	}
 
-	// 标签云
+	// tag cloud
 	const tagMap: Record<string, number> = {};
 	for (const e of all) {
 		for (const tag of e.tags) tagMap[tag] = (tagMap[tag] || 0) + 1;
@@ -884,7 +884,7 @@ export function metaMemory(query?: string): MetaMemoryReport {
 		.sort((a, b) => b.count - a.count)
 		.slice(0, 30);
 
-	// 查询命中检测
+	// query hit detection
 	let queryHit: MetaMemoryReport["queryHit"] = {
 		query: query || "(none)",
 		hit: false,
@@ -910,7 +910,7 @@ export function metaMemory(query?: string): MetaMemoryReport {
 		queryHit.bestCategory = scored.length > 0 ? scored[0]!.entry.category : "";
 	}
 
-	// 健康指标
+	// health metrics
 	const thirtyDaysAgo = now - 30 * 86400000;
 	let staleEntries = 0;
 	let orphanEntries = 0;
@@ -943,24 +943,24 @@ export function metaMemory(query?: string): MetaMemoryReport {
 	};
 }
 
-/** 加载所有知识（兼容旧代码） */
+/** Load all knowledge (legacy compatibility) */
 export function loadAllKnowledge(): KnowledgeEntry[] {
-	// 优先从新格式加载
+	// load from the new format first
 	const core = loadEntries(CORE_STORE);
 	const log = loadEntries(LOG_STORE);
 	if (core.length > 0 || log.length > 0) {
 		return [...core, ...log];
 	}
-	// 兼容旧格式
+	// fall back to legacy format
 	return loadEntries(LEGACY_STORE);
 }
 
 /**
- * 迁移旧格式记忆到新分层系统
- * 迁移策略：
- * - 自我批判/用户纠正 → 日志（低价值）
- * - 技术决策/结论/事实 → 核心（高价值）
- * - 清理所有噪音标签
+ * Migrate legacy memory into the new layered system
+ * Migration strategy:
+ * - self-criticism / user corrections → log (low value)
+ * - tech decisions / conclusions / facts → core (high value)
+ * - strip all noise tags
  */
 export function migrateFromLegacy(): { migrated: number; core: number; log: number; skipped: number } {
 	if (!existsSync(LEGACY_STORE)) return { migrated: 0, core: 0, log: 0, skipped: 0 };
@@ -971,12 +971,12 @@ export function migrateFromLegacy(): { migrated: number; core: number; log: numb
 	let core = 0, log = 0, skipped = 0;
 
 	for (const entry of legacy) {
-		// 跳过已经迁移过的
+		// skip already-migrated entries
 		if ((entry as any).category) { skipped++; continue; }
 
 		const content = entry.content;
 
-		// 自我批判和用户纠正 → 日志，低信心
+		// self-criticism and user corrections → log, low confidence
 		if (content.startsWith("自我批判") || content.startsWith("用户纠正") || content.startsWith("self-criticism") || content.startsWith("user correction")) {
 			const migrated: KnowledgeEntry = {
 				...entry,
@@ -990,7 +990,7 @@ export function migrateFromLegacy(): { migrated: number; core: number; log: numb
 			continue;
 		}
 
-		// 推断分类
+		// infer category
 		const category = inferCategory(content, entry.tags);
 		const migrated: KnowledgeEntry = {
 			...entry,
@@ -1011,49 +1011,49 @@ export function migrateFromLegacy(): { migrated: number; core: number; log: numb
 	return { migrated: core + log, core, log, skipped };
 }
 
-// ===== 情景记忆系统 (Episodic Memory) =====
+// ===== Episodic Memory =====
 //
-// 区别于知识片段（flat conclusions），情景记忆存储完整的经历结构：
-//   什么场景 → 遇到什么 → 做了什么 → 结果如何 → 学到什么
-// 可按场景/标签/时间检索，形成可复用的经验库。
+// Unlike flat knowledge conclusions, episodic memory stores complete experience structures:
+//   what scenario → what happened → what was done → outcome → lesson learned
+// Searchable by scenario/tag/time, forming a reusable experience library.
 //
-// 存储: ~/.novus/knowledge/experience.jsonl
+// storage: ~/.novus/knowledge/experience.jsonl
 
 const EXPERIENCE_STORE = join(KNOWLEDGE_DIR, "experience.jsonl");
 const MAX_EXPERIENCES = 500;
 
 export interface ExperienceEntry {
 	id: string;
-	/** 经历标题 */
+	/** experience title */
 	title: string;
-	/** 场景描述（什么情况下发生的） */
+	/** scenario description (in what situation it happened) */
 	scenario: string;
-	/** 遇到的问题/情况 */
+	/** problem/situation encountered */
 	situation: string;
-	/** 采取的行动 */
+	/** actions taken */
 	actions: string[];
-	/** 结果 */
+	/** outcome */
 	outcome: string;
-	/** 学到的教训/规则（可被identity复用） */
+	/** lessons/rules learned (reusable by identity) */
 	lessons: string[];
-	/** 来源会话 */
+	/** source session */
 	sessionId?: string;
-	/** 标签（场景分类：debug、deploy、ssh、优化等） */
+	/** tags (scenario classes: debug, deploy, ssh, optimize…) */
 	tags: string[];
-	/** 时间戳 */
+	/** timestamp */
 	timestamp: string;
-	/** 信心 0-1 */
+	/** confidence 0-1 */
 	confidence: number;
-	/** 引用计数 */
+	/** ref count */
 	refCount: number;
 }
 
-/** 存储情景记忆 */
+/** Store an episodic memory */
 export function storeExperience(entry: Omit<ExperienceEntry, "id" | "refCount">): ExperienceEntry {
 	ensureDir();
 	const entries = loadExperiences();
 
-	// 去重：相同title+scenario的保留最新
+	// dedup: same title+scenario keeps the latest
 	const dupIdx = entries.findIndex(e => e.title === entry.title && e.scenario === entry.scenario);
 	if (dupIdx >= 0) entries.splice(dupIdx, 1);
 
@@ -1064,17 +1064,17 @@ export function storeExperience(entry: Omit<ExperienceEntry, "id" | "refCount">)
 	};
 	entries.unshift(newEntry);
 
-	// 限制总数
+	// cap total count
 	if (entries.length > MAX_EXPERIENCES) {
 		entries.splice(MAX_EXPERIENCES);
 	}
 
-	// 经历用独立存储（不混入knowledge entries）
+	// experiences use separate storage (not mixed into knowledge entries)
 	writeFileSync(EXPERIENCE_STORE, entries.map(e => JSON.stringify(e)).join("\n") + "\n", "utf-8");
 	return newEntry;
 }
 
-/** 检索情景记忆（按场景/标签/关键词匹配） */
+/** Recall episodic memories (by scenario/tag/keyword) */
 export function recallExperience(query: {
 	scenario?: string;
 	tags?: string[];
@@ -1087,14 +1087,14 @@ export function recallExperience(query: {
 	let scored = entries.map(e => {
 		let score = 0;
 
-		// 标签精确匹配
+		// exact tag match
 		if (query.tags?.length) {
 			for (const tag of query.tags) {
 				if (e.tags.includes(tag)) score += 10;
 			}
 		}
 
-		// 场景匹配
+		// scenario match
 		if (query.scenario) {
 			const queryTokens = tokenize(query.scenario);
 			const sceneTokens = tokenize(e.scenario + " " + e.situation);
@@ -1105,21 +1105,21 @@ export function recallExperience(query: {
 			if (queryTokens.size > 0) score += (overlap / queryTokens.size) * 8;
 		}
 
-		// 关键词全文搜索
+		// keyword full-text search
 		if (query.keyword) {
 			const fullText = (e.title + " " + e.scenario + " " + e.situation + " " + e.outcome + " " + e.lessons.join(" ")).toLowerCase();
 			if (fullText.includes(query.keyword.toLowerCase())) score += 5;
-			// 额外搜索 bigrams
+			// also search bigrams
 			const kwTokens = tokenize(query.keyword);
 			for (const t of kwTokens) {
 				if (fullText.includes(t)) score += 2;
 			}
 		}
 
-		// 时间衰减（越新越好，但教训不会过时）
+		// time decay (newer is better, but lessons don't expire)
 		const ageDays = (Date.now() - new Date(e.timestamp).getTime()) / 86400000;
 		const recency = ageDays < 7 ? 1.0 : ageDays < 30 ? 0.8 : 0.6;
-		// 有教训的经验不过时
+		// experiences with lessons don't go stale
 		const hasLessons = e.lessons.length > 0;
 
 		return { entry: e, score: score * (hasLessons ? 1.2 : recency) };
@@ -1129,7 +1129,7 @@ export function recallExperience(query: {
 	return scored.filter(s => s.score > 1).slice(0, query.limit ?? 10).map(s => s.entry);
 }
 
-/** 从 worklog 条目自动提取情景记忆 */
+/** Auto-extract an episodic memory from a worklog entry */
 export function extractExperienceFromWorklog(wle: {
 	activity: string;
 	changes?: string;
@@ -1140,12 +1140,12 @@ export function extractExperienceFromWorklog(wle: {
 	timestamp?: string;
 	sessionId?: string;
 }): Omit<ExperienceEntry, "id" | "refCount"> | null {
-	// 只提取有实质改动的工作（跳过idle/blocked/简单的"检查"）
+	// only extract work with real changes (skip idle/blocked/simple "checks")
 	if (wle.status === "idle" || wle.status === "blocked") return null;
 	if (!wle.changes && !wle.files?.length) return null;
 	if (wle.activity.length < 8) return null;
 
-	// 推断场景标签
+	// infer scenario tags
 	const tags: string[] = [];
 	const fullText = (wle.activity + " " + (wle.changes || "") + " " + (wle.step || "")).toLowerCase();
 	const tagMap: Record<string, string[]> = {
@@ -1160,13 +1160,13 @@ export function extractExperienceFromWorklog(wle: {
 	}
 	if (tags.length === 0) tags.push("general");
 
-	// 从改动描述中提取教训
+	// extract lessons from change descriptions
 	const lessons: string[] = [];
 	if (wle.changes) {
-		// 提取"改为""加""去掉"等动词后的关键信息
+		// extract key info after verbs like 改为/加/去掉 (changed/added/removed)
 		const patterns = wle.changes.match(/(?:改为|改为|加|新增|去掉|移除|修复|改用)[^,;。]+/g);
 		if (patterns) lessons.push(...patterns.map(p => "changes: " + p.trim()));
-		// 如果有"避免"字样，直接提取为教训
+		// if it contains 避免 (avoid), extract directly as a lesson
 		const avoidPatterns = wle.changes.match(/避免[^,;。]+/g);
 		if (avoidPatterns) lessons.push(...avoidPatterns.map(p => p.trim()));
 	}
@@ -1185,13 +1185,13 @@ export function extractExperienceFromWorklog(wle: {
 	return result;
 }
 
-/** 加载所有情景记忆 */
+/** Load all episodic memories */
 function loadExperiences(): ExperienceEntry[] {
 	if (!existsSync(EXPERIENCE_STORE)) return [];
 	return loadEntries(EXPERIENCE_STORE) as unknown as ExperienceEntry[];
 }
 
-/** 情景记忆统计 */
+/** Episodic memory stats */
 export function experienceStats(): { total: number; byTag: Record<string, number>; recent: string } {
 	const entries = loadExperiences();
 	const byTag: Record<string, number> = {};

@@ -1,15 +1,15 @@
 /**
- * session-worklog — 会话级工作上下文日志 + 自动文件备份。
+ * session-worklog — session-level work context log + automatic file backups.
  *
- * 核心设计：
- *   1. log 时自动备份涉及的文件到 ~/.novus/checkpoints/
- *   2. undo 列出所有 checkpoint，可一键回退
- *   3. history 查看操作历史
- *   4. 会话结束时可 snapshot 断点，下次 recover 恢复
+ * Core design:
+ *   1. log auto-backs up touched files to ~/.novus/checkpoints/
+ *   2. undo lists all checkpoints, one-click rollback
+ *   3. history shows past operations
+ *   4. snapshot at session end, recover next session
  *
- * 存储位置: ~/.novus/session-worklog.json（单文件，最新状态覆盖）
- * 历史归档: ~/.novus/session-worklog-history.jsonl（每条一行）
- * 文件备份: ~/.novus/checkpoints/cp_HHMMSS/（每个备份一个目录）
+ * storage: ~/.novus/session-worklog.json (single file, latest state overwritten)
+ * history archive: ~/.novus/session-worklog-history.jsonl (one entry per line)
+ * file backups: ~/.novus/checkpoints/cp_HHMMSS/ (one dir per backup)
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
@@ -50,7 +50,7 @@ function autoSyncToKnowledge(entry: WorklogEntry): void {
 			confidence: 0.7,
 		});
 
-		// 自动提取情景记忆（从有实质改动的worklog）
+		// auto-extract episodic memory (from worklogs with real changes)
 		const exp = extractExperienceFromWorklog({
 			activity: entry.activity,
 			changes: entry.changes,
@@ -77,19 +77,19 @@ function ensureDir(): void {
 export interface WorklogEntry {
 	timestamp: string;
 	sessionId: string;
-	activity: string;       // 当前正在做什么，一句话
-	context?: string;       // 补充上下文（可选，1-2句话）
-	step?: string;          // 所在的 plan step 或阶段
-	files?: string[];       // 涉及的关键文件
-	nextStep?: string;      // 下一步计划做什么
-	changes?: string;        // 做了什么改动（摘要）
-	checkpoint?: string;     // 备份 checkpoint ID
+	activity: string;       // what you're doing right now, one sentence
+	context?: string;       // extra context (optional, 1-2 sentences)
+	step?: string;          // current plan step or phase
+	files?: string[];       // key files involved
+	nextStep?: string;      // what's planned next
+	changes?: string;        // what changed (summary)
+	checkpoint?: string;     // backup checkpoint ID
 	status: "working" | "blocked" | "done" | "idle";
 }
 
 export interface WorklogState {
 	current: WorklogEntry | null;
-	lastSession: WorklogEntry | null;   // 上一轮的工作状态（断点快照）
+	lastSession: WorklogEntry | null;   // last round's work state (breakpoint snapshot)
 }
 
 interface WorklogParams {

@@ -1,14 +1,14 @@
 /**
- * knowledge-graph — 知识图谱：从知识库中提取实体和关系，构建关联网络。
+ * knowledge-graph — extract entities and relations from the knowledge store, build an association network.
  *
- * 存储位置: ~/.novus/knowledge-graph/graph.json
+ * storage: ~/.novus/knowledge-graph/graph.json
  *
- * 功能：
- *   - build: 从现有 knowledge entries 提取实体和关系，构建图谱
- *   - query: 查询实体及其关联实体链
- *   - link: 手动添加实体关联
- *   - show: 显示图谱统计和核心节点
- *   - clear: 清空图谱
+ * actions:
+ *   - build: extract entities/relations from existing knowledge entries, build the graph
+ *   - query: look up an entity and its connection chain
+ *   - link: manually add an entity relation
+ *   - show: graph stats and core nodes
+ *   - clear: wipe the graph
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";

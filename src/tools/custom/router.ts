@@ -1,30 +1,30 @@
 /**
- * Smart Router - 智能路由引擎
+ * Smart Router
  *
- * 第五轮进化核心模块：根据用户意图自动推荐最优工具链，
- * 减少冗余工具调用，提升对话效率。
+ * Fifth-evolution core module: recommends the optimal tool chain based on user intent,
+ * reducing redundant tool calls and improving conversation efficiency.
  *
- * 核心能力：
- * 1. 意图分类 — 将用户输入映射到工具域
- * 2. 工具推荐 — 基于意图推荐最相关工具子集
- * 3. 链式编排 — 推荐多步工具组合模板
- * 4. 冗余检测 — 识别重复/低效工具调用模式
+ * Core capabilities:
+ * 1. intent classification — map user input to a tool domain
+ * 2. tool recommendation — suggest the most relevant tool subset for the intent
+ * 3. chain orchestration — recommend multi-step tool combination templates
+ * 4. redundancy detection — spot duplicate/inefficient tool-call patterns
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 
-// ── 意图分类 ─────────────────────────────────────────────────────
+// ── Intent classification ─────────────────────────────────────────────────────
 
 export type IntentCategory =
-	| "code"          // 代码操作：读写编辑、构建、测试
-	| "knowledge"     // 知识管理：学习、回忆、图谱
-	| "fetch"         // 网络操作：抓取URL、搜索
-	| "system"        // 系统管理：同步、健康检查、联邦
-	| "session"       // 会话管理：上下文、工作日志、计划
-	| "publish"       // 发布操作：掘金、公众号
-	| "chat"          // 纯对话：闲聊、解释、规划
-	| "oss"           // 开源贡献：GitHub issues、PR
-	| "inspect";      // 代码分析：结构分析、依赖追踪
+	| "code"          // code ops: read/write/edit, build, test
+	| "knowledge"     // knowledge: learn, recall, graph
+	| "fetch"         // web ops: fetch URLs, search
+	| "system"        // system ops: sync, health checks, federation
+	| "session"       // session mgmt: context, work log, plans
+	| "publish"       // publishing: Juejin, WeChat official account
+	| "chat"          // pure chat: small talk, explanations, planning
+	| "oss"           // OSS contribution: GitHub issues, PRs
+	| "inspect";      // code inspection: structure analysis, dependency tracing
 
 interface IntentMatch {
 	intent: IntentCategory;
@@ -32,7 +32,7 @@ interface IntentMatch {
 	keywords: string[];
 }
 
-// 每个意图的关键词触发器（按权重排序）
+// keyword triggers per intent (sorted by weight)
 const INTENT_KEYWORDS: Record<IntentCategory, string[]> = {
 	code: ["写代码", "编辑", "修改代码", "创建文件", "新建", "实现", "开发", "重构", "fix", "bug", "测试", "编译", "build", "部署", "deploy", "git", "commit", "run", "执行", "bash", "命令", "安装", "install", "npm", "node", "typescript", "function", "class", "接口", "API"],
 	knowledge: ["学", "记忆", "知识", "记住", "recall", "learn", "存储", "知识库", "遗忘", "图谱", "graph", "积累", "经验", "总结", "笔记"],
@@ -45,7 +45,7 @@ const INTENT_KEYWORDS: Record<IntentCategory, string[]> = {
 	inspect: ["分析", "结构", "依赖", "引用", "导入", "import", "map", "symbols", "代码库", "架构", "模块"],
 };
 
-// ── 工具到意图映射 ─────────────────────────────────────────────────
+// ── Tool-to-intent mapping ─────────────────────────────────────────────────
 
 const TOOL_INTENT_MAP: Record<string, IntentCategory[]> = {
 	read: ["code", "inspect"],
@@ -80,7 +80,7 @@ const TOOL_INTENT_MAP: Record<string, IntentCategory[]> = {
 	mcp_server: ["system"],
 };
 
-// ── 工具链模板 ─────────────────────────────────────────────────────
+// ── Tool chain templates ─────────────────────────────────────────────────────
 
 export interface ToolChainStep {
 	tool: string;
@@ -164,7 +164,7 @@ export const TOOL_CHAINS: ToolChain[] = [
 	},
 ];
 
-// ── 冗余检测器 ────────────────────────────────────────────────────
+// ── Redundancy detector ────────────────────────────────────────────────────
 
 interface ToolCallRecord {
 	tool: string;
@@ -173,14 +173,14 @@ interface ToolCallRecord {
 }
 
 /**
- * 检测冗余工具调用模式
+ * Detect redundant tool-call patterns
  */
 export class RedundancyDetector {
 	private history: ToolCallRecord[] = [];
 	private static readonly MAX_HISTORY = 50;
 
 	/**
-	 * 记录一次工具调用
+	 * Record a tool call
 	 */
 	record(tool: string, params: Record<string, unknown>): void {
 		this.history.push({ tool, params, timestamp: Date.now() });
@@ -190,11 +190,11 @@ export class RedundancyDetector {
 	}
 
 	/**
-	 * 检查即将进行的调用是否冗余
-	 * 返回冗余原因或 null
+	 * Check whether an upcoming call is redundant
+	 * Returns the redundancy reason or null
 	 */
 	check(tool: string, params: Record<string, unknown>): string | null {
-		// 检查最近3次调用中是否有完全相同的
+		// check whether any of the last 3 calls is identical
 		const recentSame = this.history.filter(
 			(r) => r.tool === tool && JSON.stringify(r.params) === JSON.stringify(params)
 		);
@@ -202,7 +202,7 @@ export class RedundancyDetector {
 			return `Same-params call to ${tool} already made ${recentSame.length} times — likely redundant`;
 		}
 
-		// 检查同轮调用中是否已有完全相同目标的同类操作（仅针对有明确目标的工具）
+		// check whether the same turn already ran the same op on the same target (targeted tools only)
 		const recent5 = this.history.slice(-5);
 		const targetKeys = ["path", "query", "url", "pattern"];
 		for (const key of targetKeys) {
@@ -218,7 +218,7 @@ export class RedundancyDetector {
 	}
 
 	/**
-	 * 获取本轮调用统计摘要
+	 * Get a stats summary for this turn's calls
 	 */
 	summary(): string {
 		if (this.history.length === 0) return "no calls recorded";
@@ -240,7 +240,7 @@ export class RedundancyDetector {
 	}
 }
 
-// ── 路由核心 ──────────────────────────────────────────────────────
+// ── Routing core ──────────────────────────────────────────────────────
 
 let detectorInstance: RedundancyDetector | null = null;
 
@@ -252,7 +252,7 @@ export function getDetector(): RedundancyDetector {
 }
 
 /**
- * 分类用户意图（支持多意图）
+ * Classify user intent (multi-intent supported)
  */
 export function classifyIntent(input: string): IntentMatch[] {
 	const lower = input.toLowerCase();
@@ -270,20 +270,20 @@ export function classifyIntent(input: string): IntentMatch[] {
 		if (score > 0) {
 			results.push({
 				intent: intent as IntentCategory,
-				confidence: Math.min(score / 3, 1),  // 3个关键词命中即满分
+				confidence: Math.min(score / 3, 1),  // 3 keyword hits = full score
 				keywords: matched,
 			});
 		}
 	}
 
-	// 按置信度排序
+	// sort by confidence
 	results.sort((a, b) => b.confidence - a.confidence);
 	return results;
 }
 
 /**
- * 根据意图推荐工具子集
- * 返回 top-N 最相关工具，减少 LLM 从27个工具中选择的信息噪声
+ * Recommend a tool subset for the intent
+ * Returns the top-N most relevant tools, cutting the noise of choosing from 27
  */
 export function recommendTools(intent: IntentCategory, allTools: AgentTool<any>[], topN = 8): AgentTool<any>[] {
 	const toolNames: string[] = allTools.map((t) => t.name);
@@ -297,13 +297,13 @@ export function recommendTools(intent: IntentCategory, allTools: AgentTool<any>[
 		}
 	}
 
-	// 按分数排序，取 topN
+	// sort by score, take topN
 	scored.sort((a, b) => b.score - a.score);
 	return scored.slice(0, topN).map((s) => s.tool);
 }
 
 /**
- * 根据用户输入匹配最佳工具链
+ * Match the best tool chain for the user input
  */
 export function matchToolChain(input: string): ToolChain | null {
 	const lower = input.toLowerCase();
@@ -317,7 +317,7 @@ export function matchToolChain(input: string): ToolChain | null {
 				score += 2;
 			}
 		}
-		// 也通过意图分类补充匹配
+		// also match via intent classification
 		const intents = classifyIntent(input);
 		for (const i of intents) {
 			if (i.intent === chain.intent && i.confidence > 0.3) {
@@ -334,7 +334,7 @@ export function matchToolChain(input: string): ToolChain | null {
 }
 
 /**
- * 生成路由建议（注入到 system prompt 中的提示）
+ * Generate routing advice (a hint injected into the system prompt)
  */
 export function routeAdvice(input: string, allToolNames: string[]): string {
 	const intents = classifyIntent(input);
@@ -350,7 +350,7 @@ export function routeAdvice(input: string, allToolNames: string[]): string {
 		parts.push(`Suggested chain: [${chain.name}] ${chain.steps.map((s) => s.tool).join(" → ")}`);
 	}
 
-	// 冗余警告
+	// redundancy warning
 	const warning = getDetector().summary();
 	if (warning !== "call patterns normal") {
 		parts.push(warning);
@@ -359,7 +359,7 @@ export function routeAdvice(input: string, allToolNames: string[]): string {
 	return parts.join("\n");
 }
 
-// ── Agent Tool 导出 ───────────────────────────────────────────────
+// ── Agent Tool export ───────────────────────────────────────────────
 
 export function createTool(cwd: string): AgentTool<any> {
 	return {

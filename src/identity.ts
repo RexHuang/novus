@@ -222,8 +222,8 @@ function buildBoundaryAwareness(): string {
 	parts.push(`- When uncertain about intent, ASK instead of guessing — guessing leads to wasted tool calls`);
 
 	// Part 2: Dynamic error patterns (learned from failures)
-	// 复用 evaluateRuleEffectiveness 的 isResolved 判断，与 Behavior 摘要保持同一标准：
-	// 最近 3 个 session 仍在触发的 = 活跃（显示规则全文），已不再触发的 = 已控制（折叠成一行）
+	// reuse evaluateRuleEffectiveness's isResolved judgment, same standard as the Behavior summary:
+	// still triggered in the last 3 sessions = active (show full rule); no longer triggered = resolved (collapse to one line)
 	let effectiveness: Array<{ pattern: string; rule: string; count: number; isResolved: boolean }>;
 	try {
 		effectiveness = evaluateRuleEffectiveness();

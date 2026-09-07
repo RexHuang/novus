@@ -1,8 +1,8 @@
 /**
- * execution-tracker — 追踪 plan step 的工具调用链，记录结果，支持失败回退。
+ * execution-tracker — tracks the tool-call chain per plan step, records results, supports rollback.
  *
- * 存储位置: ~/.novus/execution-tracker/log.jsonl（每行一条记录）
- * 与 plan.ts 配合使用：plan complete 时自动记录步骤结果。
+ * storage: ~/.novus/execution-tracker/log.jsonl (one record per line)
+ * Works with plan.ts: plan complete auto-records the step result.
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";

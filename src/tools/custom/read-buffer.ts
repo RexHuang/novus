@@ -1,13 +1,13 @@
 /**
- * read-buffer — 查看会话缓冲区
+ * read-buffer — inspect the session buffer
  *
- * 交互界面（聊天/终端）显示的内容会同步写入 ~/.novus/session-buffer.txt。
- * 本工具让你能随时查看缓冲区内容，还原界面当时的状态。
+ * What the interactive UI (chat/terminal) shows is synced to ~/.novus/session-buffer.txt.
+ * This tool lets you inspect the buffer anytime, restoring the UI state at that moment.
  *
- * 用法：
- *   read-buffer         — 查看全文
- *   read-buffer clear   — 清空缓冲区
- *   read-buffer lines   — 只看行数
+ * Usage:
+ *   read-buffer         — full content
+ *   read-buffer clear   — clear the buffer
+ *   read-buffer lines   — line count only
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";

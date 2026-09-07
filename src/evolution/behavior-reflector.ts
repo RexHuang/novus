@@ -1,17 +1,17 @@
 /**
- * Behavior Reflector v1 — 行为反射引擎
+ * Behavior Reflector v1
  *
- * 核心设计：让 novus 从自己的行为中学习。
+ * Core idea: let novus learn from its own behavior.
  *
- * reflect.ts 学的是「对话内容」（用户说了什么、结论是什么），
- * behavior-reflector.ts 学的是「我的行为」（工具调用模式、决策效率、失败模式）。
+ * reflect.ts learns from conversation content (what the user said, what conclusions were drawn),
+ * behavior-reflector.ts learns from behavior (tool-call patterns, decision efficiency, failure modes).
  *
- * 工作流程：
- *   1. 读取未分析过的会话
- *   2. 提取工具调用序列，分析模式
- *   3. 发现新的错误模式，更新已有的模式统计
- *   4. 生成动态元认知规则
- *   5. 追踪已有规避规则的效果
+ * Workflow:
+ *   1. read unanalyzed sessions
+ *   2. extract tool-call sequences, analyze patterns
+ *   3. discover new error patterns, update existing pattern stats
+ *   4. generate dynamic metacognition rules
+ *   5. track the effect of existing avoidance rules
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, readdirSync } from "node:fs";
@@ -23,7 +23,7 @@ const SESSION_DIR = join(homedir(), ".novus", "sessions");
 const ANALYSIS_STATE_FILE = join(homedir(), ".novus", "evolution", "analyzed-sessions.json");
 const REFLECTION_LOG = join(homedir(), ".novus", "evolution", "behavior-reflections.jsonl");
 
-// ===== 数据结构 =====
+// ===== Data structures =====
 
 export interface ReflectedSession {
 	sessionId: string;
@@ -36,15 +36,15 @@ export interface ReflectedSession {
 }
 
 export interface DetectedPattern {
-	/** 模式名称，如 'over-tool-calling' */
+	/** pattern name, e.g. 'over-tool-calling' */
 	pattern: string;
-	/** 描述具体发生了什么 */
+	/** describes what concretely happened */
 	description: string;
-	/** 出现次数（一个会话内） */
+	/** occurrence count (within one session) */
 	count: number;
-	/** 建议的规避规则 */
+	/** suggested avoidance rule */
 	suggestedRule: string;
-	/** 是否是新的发现（第一次看到） */
+	/** is this a new finding (first time seen) */
 	isNovel: boolean;
 }
 
@@ -81,7 +81,7 @@ interface AnalysisState {
 	lastRun: string;
 }
 
-// ===== 状态管理 =====
+// ===== State management =====
 
 function ensureDir(): void {
 	const dir = join(homedir(), ".novus", "evolution");
@@ -112,7 +112,7 @@ function logReflection(reflection: ReflectedSession): void {
 	appendFileSync(REFLECTION_LOG, JSON.stringify(reflection) + "\n", "utf-8");
 }
 
-// ===== 会话解析 =====
+// ===== Session parsing =====
 
 function parseSessionFile(filePath: string): { header: SessionHeader | null; messages: MessageEntry[] } {
 	if (!existsSync(filePath)) return { header: null, messages: [] };
@@ -211,7 +211,7 @@ function extractUserCorrections(messages: MessageEntry[]): number {
 	return count;
 }
 
-// ===== 模式分析 =====
+// ===== Pattern analysis =====
 
 interface PatternAnalysis {
 	patterns: DetectedPattern[];
@@ -222,9 +222,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 	const patterns: DetectedPattern[] = [];
 	const notes: string[] = [];
 
-	// --- 1. 过度工具调用 (over-tool-calling) ---
-	// 分析：单轮（turn）内工具调用数
-	// 排除自主任务轮（auto-manage + agent-comm 组合是正常的自动化流程）
+	// --- 1. over-tool-calling ---
+	// analyzes: tool call count within a single turn
+	// excludes autonomous-task turns (auto-manage + agent-comm is normal automation)
 	const AUTONOMOUS_TOOLS = new Set(["auto-manage"]);
 	const callsByTurn = new Map<number, { total: number; autonomous: number }>();
 	for (const tc of toolCalls) {
@@ -256,8 +256,8 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 		notes.push(`${maxToolsInTurn} tools in turn ${maxToolsTurn}`);
 	}
 
-	// --- 2. 重复工具调用 (repetitive-tool-calls) ---
-	// 分析：相邻的同名工具调用（同一轮或跨轮）
+	// --- 2. repetitive-tool-calls ---
+	// analyzes: adjacent same-name tool calls (same or adjacent turns)
 	let repetitiveCount = 0;
 	const repetitiveDetails: string[] = [];
 	for (let i = 1; i < toolCalls.length; i++) {
@@ -286,9 +286,9 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 		notes.push(`${repetitiveCount} repetitive calls`);
 	}
 
-	// --- 2.5 刷屏检测 (screen-spam) ---
-	// 分析：同一轮内同名工具调用过多（不管参数是否相同），用户看到的是刷屏
-	// 重点关注高频工具：bash, grep, read, find, connect
+	// --- 2.5 screen-spam ---
+	// analyzes: too many same-name calls in one turn (regardless of params) — screen spam for the user
+	// focuses on high-frequency tools: bash, grep, read, find, connect
 	const SPAM_PRONE_TOOLS = new Set(["bash", "grep", "read", "find", "connect"]);
 	const toolCountByTurn = new Map<string, Map<number, number>>();
 	for (const tc of toolCalls) {
@@ -317,7 +317,7 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 		notes.push(`${spamTool} x${spamCount} spam in turn ${spamTurn}`);
 	}
 
-	// --- 3. 重复记忆召回 (repetitive-recall) ---
+	// --- 3. repetitive-recall ---
 	const recallCalls = toolCalls.filter(tc => tc.toolName === "connect" && tc.args.includes("recall"));
 	if (recallCalls.length >= 3) {
 		// Check if they're in sequence without user input in between
@@ -340,7 +340,7 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 		}
 	}
 
-	// --- 4. 工具调用失败率 (tool-error-rate) ---
+	// --- 4. tool-error-rate ---
 	const errorCalls = toolCalls.filter(tc => tc.isError);
 	if (errorCalls.length > 0) {
 		const errorRate = Math.round((errorCalls.length / toolCalls.length) * 100);
@@ -359,7 +359,7 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 		}
 	}
 
-	// --- 5. 用户纠正 (user-corrections) ---
+	// --- 5. user-corrections ---
 	if (userCorrections >= 2) {
 		patterns.push({
 			pattern: "user-correction-pattern",
@@ -371,8 +371,8 @@ function analyzeToolCalls(toolCalls: ToolCallRecord[], userCorrections: number):
 		notes.push(`${userCorrections} user corrections`);
 	}
 
-	// --- 6. 猜而不问 (guess-instead-of-ask) ---
-	// 特征：一轮内调用了3+个工具进行探索，而不是先问用户
+	// --- 6. guess-instead-of-ask ---
+	// signature: 3+ exploration tool calls in one turn instead of asking the user first
 	const explorationPatterns = ["read", "grep", "find", "connect"];
 	for (const [turn, entry] of callsByTurn) {
 		const effectiveCount = entry.total - entry.autonomous;
@@ -411,11 +411,11 @@ function groupBy<T>(items: T[], keyFn: (item: T) => string): Record<string, T[]>
 	return result;
 }
 
-// ===== 核心接口 =====
+// ===== Core API =====
 
 /**
- * 分析一个会话文件，返回行为分析结果。
- * 不会自动保存到 error-patterns — 由调用方决定。
+ * Analyze one session file, return the behavior analysis.
+ * Doesn't auto-save to error-patterns — the caller decides.
  */
 export function analyzeSession(filePath: string): ReflectedSession | null {
 	const parsed = parseSessionFile(filePath);
@@ -437,8 +437,8 @@ export function analyzeSession(filePath: string): ReflectedSession | null {
 }
 
 /**
- * 分析所有未处理过的会话，发现行为模式，更新 error-patterns。
- * 返回本次分析发现的模式摘要。
+ * Analyze all unprocessed sessions, discover behavior patterns, update error-patterns.
+ * Returns a summary of patterns found in this analysis.
  */
 export function reflectOnRecentSessions(maxSessions: number = 10): {
 	sessionsAnalyzed: number;
@@ -526,8 +526,8 @@ export function reflectOnRecentSessions(maxSessions: number = 10): {
 }
 
 /**
- * 评估已有错误模式的效果。
- * 返回每种模式是否「已解决」（最近3次会话未触发）。
+ * Evaluate the effect of existing error patterns.
+ * Returns whether each pattern is "resolved" (not triggered in the last 3 sessions).
  */
 export function evaluateRuleEffectiveness(): Array<{ pattern: string; rule: string; count: number; isResolved: boolean }> {
 	const patterns = loadErrorPatterns();
@@ -559,7 +559,7 @@ export function evaluateRuleEffectiveness(): Array<{ pattern: string; rule: stri
 }
 
 /**
- * 生成行为反射摘要文本 —— 供 identity.ts 注入
+ * Generate the behavior reflection summary — for identity.ts to inject
  */
 export function buildBehaviorSummary(): string {
 	const patterns = loadErrorPatterns();
@@ -591,7 +591,7 @@ export function buildBehaviorSummary(): string {
 	return lines.join("\n");
 }
 
-// ===== 工具函数 =====
+// ===== Utilities =====
 
 interface SessionFileInfo {
 	id: string;

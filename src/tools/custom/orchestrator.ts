@@ -1,17 +1,17 @@
 /**
- * Chain Orchestrator - 工具链编排器
+ * Chain Orchestrator
  *
- * 第五轮进化：将 Smart Router 推荐的工具链变成可自动执行的计划。
- * 职责：
- * 1. 接收 router 推荐的 ToolChain → 生成执行计划
- * 2. 注入到 system prompt 让 LLM 看到推荐步骤
- * 3. 跟踪每步执行状态（pending/done/skipped/error）
- * 4. 链执行完成后输出摘要
+ * Fifth evolution: turn Smart Router's recommended chain into an auto-executable plan.
+ * Responsibilities:
+ * 1. take the router's ToolChain → build an execution plan
+ * 2. inject into the system prompt so the LLM sees the recommended steps
+ * 3. track per-step status (pending/done/skipped/error)
+ * 4. emit a summary when the chain finishes
  */
 
 import type { ToolChain } from "./router.js";
 
-// ── 类型 ──────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────
 
 export type StepStatus = "pending" | "active" | "done" | "skipped" | "error";
 
@@ -21,28 +21,28 @@ export interface ChainStep {
 	description: string;
 	optional: boolean;
 	status: StepStatus;
-	result?: string;       // 执行后的简短结果
+	result?: string;       // short result after execution
 	duration?: number;     // ms
 }
 
 export interface ChainExecution {
 	id: string;
 	chain: string;
-	input: string;          // 触发输入
+	input: string;          // trigger input
 	steps: ChainStep[];
 	startedAt: number;
 	completedAt?: number;
 	status: "running" | "completed" | "failed";
 }
 
-// ── 编排器 ────────────────────────────────────────────────────────
+// ── Orchestrator ────────────────────────────────────────────────────
 
 export class ChainOrchestrator {
 	private executions: Map<string, ChainExecution> = new Map();
 	private static readonly MAX_EXECUTIONS = 10;
 
 	/**
-	 * 启动一个工具链执行
+	 * Start a chain execution
 	 */
 	start(chain: ToolChain, input: string): ChainExecution {
 		this.prune();
@@ -68,7 +68,7 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 标记某个步骤开始执行
+	 * Mark a step as started
 	 */
 	beginStep(execId: string, stepIndex: number): boolean {
 		const exec = this.executions.get(execId);
@@ -79,7 +79,7 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 标记某个步骤完成
+	 * Mark a step as done
 	 */
 	completeStep(execId: string, stepIndex: number, result: string, duration: number): boolean {
 		const exec = this.executions.get(execId);
@@ -91,7 +91,7 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 跳过可选步骤
+	 * Skip an optional step
 	 */
 	skipStep(execId: string, stepIndex: number, reason: string): boolean {
 		const exec = this.executions.get(execId);
@@ -102,7 +102,7 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 标记步骤失败
+	 * Mark a step as failed
 	 */
 	failStep(execId: string, stepIndex: number, error: string): boolean {
 		const exec = this.executions.get(execId);
@@ -114,7 +114,7 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 完成整个链执行
+	 * Complete the whole chain execution
 	 */
 	complete(execId: string): boolean {
 		const exec = this.executions.get(execId);
@@ -125,14 +125,14 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 获取当前执行状态
+	 * Get the current execution status
 	 */
 	get(execId: string): ChainExecution | null {
 		return this.executions.get(execId) ?? null;
 	}
 
 	/**
-	 * 获取当前活跃（运行中）的执行
+	 * Get the currently active (running) execution
 	 */
 	getActive(): ChainExecution | null {
 		for (const exec of this.executions.values()) {
@@ -142,8 +142,8 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 生成注入到 system prompt 的提示文本
-	 * 让 LLM 看到当前正在执行的链步骤
+	 * Generate the hint text injected into the system prompt
+	 * so the LLM sees the chain steps currently executing
 	 */
 	getPromptInjection(): string {
 		const active = this.getActive();
@@ -166,7 +166,7 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 生成执行摘要
+	 * Generate an execution summary
 	 */
 	getSummary(execId: string): string {
 		const exec = this.executions.get(execId);
@@ -192,11 +192,11 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 清除过期执行记录
+	 * Evict stale execution records
 	 */
 	private prune(): void {
 		if (this.executions.size < ChainOrchestrator.MAX_EXECUTIONS) return;
-		// 移除最旧的已完成执行
+		// remove the oldest completed executions
 		const sorted = [...this.executions.entries()]
 			.filter((entry: [string, ChainExecution]) => entry[1].status !== "running")
 			.sort((a: [string, ChainExecution], b: [string, ChainExecution]) => a[1].startedAt - b[1].startedAt);
@@ -207,14 +207,14 @@ export class ChainOrchestrator {
 	}
 
 	/**
-	 * 清空所有记录
+	 * Clear all records
 	 */
 	clear(): void {
 		this.executions.clear();
 	}
 }
 
-// ── 单例 ──────────────────────────────────────────────────────────
+// ── Singleton ──────────────────────────────────────────────────────────
 
 let orchestratorInstance: ChainOrchestrator | null = null;
 
@@ -225,7 +225,7 @@ export function getOrchestrator(): ChainOrchestrator {
 	return orchestratorInstance;
 }
 
-// ── Agent Tool 导出 ───────────────────────────────────────────────
+// ── Agent Tool export ───────────────────────────────────────────────
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { matchToolChain } from "./router.js";
@@ -303,7 +303,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 				}
 
 				case "list": {
-					// 简单列出最近的执行
+					// simply list recent executions
 					const status = orch.getActive();
 					if (status) {
 						return { content: [{ type: "text", text: `active: ${status.chain} (${status.id})` }], details: {} };

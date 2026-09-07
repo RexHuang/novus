@@ -1,20 +1,20 @@
 /**
- * auto-manage — 自主任务管理工具
+ * auto-manage — autonomous task management tool
  *
- * 让 novus 能注册、查看、执行、管理自主任务。
- * 配合 autonomous/scheduler.ts 使用。
+ * Lets novus register, view, execute and manage autonomous tasks.
+ * Works with autonomous/scheduler.ts.
  *
  * Actions:
- *   register — 注册新任务
- *   list     — 列出任务
- *   run      — 手动触发执行（输出任务指令供 agent 执行）
- *   complete — 标记任务已完成
- *   fail     — 标记任务失败
- *   pause    — 暂停任务
- *   resume   — 恢复任务
- *   delete   — 删除任务
- *   history  — 查看执行历史
- *   due      — 查看到期任务
+ *   register — register a new task
+ *   list     — list tasks
+ *   run      — manually trigger execution (prints the task instruction for the agent)
+ *   complete — mark a task completed
+ *   fail     — mark a task failed
+ *   pause    — pause a task
+ *   resume   — resume a task
+ *   delete   — delete a task
+ *   history  — view execution history
+ *   due      — view due tasks
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
@@ -71,7 +71,7 @@ export function createTool(cwd: string): AgentTool<any> {
           description: "Action type",
           enum: ["register", "list", "run", "complete", "fail", "pause", "resume", "delete", "history", "due", "quality"],
         },
-        // register 参数
+        // register params
         name: {
           type: "string",
           description: "Task name (required for register)",
@@ -101,7 +101,7 @@ export function createTool(cwd: string): AgentTool<any> {
           type: "string",
           description: "Comma-separated tags",
         },
-        // 通用参数
+        // shared params
         taskId: {
           type: "string",
           description: "Task ID (required for complete/fail/pause/resume/delete)",
@@ -158,11 +158,11 @@ export function createTool(cwd: string): AgentTool<any> {
           }
 
           case "run": {
-            // run: 输出指令让 agent 执行一个或多个到期任务
+            // run: print instructions so the agent executes one or more due tasks
             const runId = p.taskId as string | undefined;
 
             if (runId) {
-              // 单个任务
+              // single task
               const taskToRun = getTask(runId);
               if (!taskToRun) {
                 return { content: [{ type: "text", text: `Task ${runId} not found.` }], details: {} };
@@ -181,7 +181,7 @@ export function createTool(cwd: string): AgentTool<any> {
               return { content: [{ type: "text", text: execPrompt }], details: {} };
             }
 
-            // 没有 taskId — 一次输出所有到期任务
+            // no taskId — print all due tasks at once
             const due = getDueTasks();
             if (due.length === 0) {
               return { content: [{ type: "text", text: "No due tasks found." }], details: {} };

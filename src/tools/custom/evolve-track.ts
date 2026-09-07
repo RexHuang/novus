@@ -1,8 +1,8 @@
 /**
- * evolve-track — 进化追踪工具
+ * evolve-track — evolution tracking tool
  *
- * 让 novus 在对话中实时记录自己的进化事件，
- * 并查询能力仪表盘。
+ * Lets novus log its own evolution events in real time during conversations,
+ * and query the capability dashboard.
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
@@ -124,7 +124,7 @@ function formatHistory(): string {
 
   const lines = [`Evolution history (${evolutions.length} total)`, ""];
 
-  // 按时间倒序
+  // newest first
   const sorted = [...evolutions].reverse();
   for (const evo of sorted) {
     const date = evo.timestamp.slice(0, 16);

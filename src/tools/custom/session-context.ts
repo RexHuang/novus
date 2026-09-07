@@ -1,19 +1,19 @@
 /**
- * session-context — 会话上下文持久化，解决异常退出时记忆丢失。
+ * session-context — session context persistence; survives abnormal exits.
  *
- * 核心原则：边做边存，不依赖退出时保存。
+ * Core principle: save as you go, don't rely on saving at exit.
  *
- * 设计：
- *   1. 独立文件 ~/.novus/session-context.json（最新上下文）
- *   2. update 时直接覆盖写入，原子性由 writeFileSync 保证
- *   3. 每次有意义的工作推进后调用 update，把"做什么+做到哪+下一步"写入
- *   4. identity 注入时自动读取，下轮一开头就能看到
- *   5. session-worklog 的 log 动作会自动调用 syncFromWorklog
+ * Design:
+ *   1. standalone file ~/.novus/session-context.json (latest context)
+ *   2. update overwrites directly; atomicity via writeFileSync
+ *   3. call update after each meaningful work step — writes what/where/next
+ *   4. identity reads it automatically at injection — visible at the start of next turn
+ *   5. session-worklog's log action auto-calls syncFromWorklog
  *
- * 与 session-worklog 的区别：
- *   - worklog: 详细的操作日志 + 文件备份 + checkpoint
- *   - context: 最后一句话的"我在做什么，下一步做什么"
- *   - context 是 worklog 的精简投影，永远有值
+ * Difference from session-worklog:
+ *   - worklog: detailed operation log + file backup + checkpoints
+ *   - context: the last word on "what I'm doing, what's next"
+ *   - context is a lean projection of worklog, always populated
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
@@ -27,19 +27,19 @@ const CONTEXT_FILE = join(NOVUS_DIR, "session-context.json");
 // ── Data types ─────────────────────────────────────────────────────
 
 export interface SessionContext {
-	/** 最后一句话：我在做什么 */
+	/** the last word: what I'm doing */
 	activity: string;
-	/** 补充上下文（可选） */
+	/** extra context (optional) */
 	detail?: string;
-	/** 做到了哪一步 / 阶段 */
+	/** which step/phase we're at */
 	step?: string;
-	/** 涉及的文件 */
+	/** files involved */
 	files?: string[];
-	/** 下一步计划 */
+	/** next step plan */
 	nextStep?: string;
-	/** 当前状态 */
+	/** current status */
 	status?: "working" | "blocked" | "done" | "idle";
-	/** 时间戳 */
+	/** timestamp */
 	timestamp: string;
 }
 
@@ -70,8 +70,8 @@ export function clearContext(): void {
 }
 
 /**
- * 从 worklog entry 同步到 context。
- * session-worklog 的 log 动作会自动调用这个。
+ * Sync from a worklog entry into context.
+ * Called automatically by session-worklog's log action.
  */
 export function syncFromWorklog(worklog: {
 	activity: string;
@@ -95,14 +95,14 @@ export function syncFromWorklog(worklog: {
 }
 
 /**
- * 用于 identity 注入：返回一行上下文摘要。
- * 如果 context 为空或太旧（>24h），返回 null。
+ * For identity injection: returns a one-line context summary.
+ * Returns null if context is empty or stale (>24h).
  */
 export function getContextSummary(): string | null {
 	const ctx = loadContext();
 	if (!ctx || !ctx.activity) return null;
 
-	// 超过24小时的上下文可能已经过时
+	// context older than 24h may be stale
 	const ageMs = Date.now() - new Date(ctx.timestamp).getTime();
 	if (ageMs > 24 * 60 * 60 * 1000) return null;
 
@@ -123,15 +123,15 @@ export function getContextSummary(): string | null {
 }
 
 /**
- * 扩展上下文：如果有活跃项目，追加项目进度摘要。
- * 在 identity 注入时调用。
+ * Extended context: append active project progress if any.
+ * Called during identity injection.
  */
 export function getExtendedContextSummary(): string {
 	const sessionSummary = getContextSummary();
 	let result = "";
 	if (sessionSummary) result += `LastWork: ${sessionSummary}\n`;
 
-	// 注入活跃项目的上下文
+	// inject active project context
 	try {
 		const { getActiveProject, projectContextSummary } = require("../../project-memory.js");
 		const active = getActiveProject();
@@ -139,7 +139,7 @@ export function getExtendedContextSummary(): string {
 			result += projectContextSummary(active.slug);
 		}
 	} catch {
-		// project-memory 不可用时静默跳过
+		// silently skip if project-memory is unavailable
 	}
 	return result;
 }

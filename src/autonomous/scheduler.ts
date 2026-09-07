@@ -1,16 +1,16 @@
 /**
  * Autonomous Task Scheduler
  *
- * 自主任务调度系统 —— 让 novus 从被动工具变成能自主触发行动的 agent。
+ * Autonomous task scheduler — turns novus from a passive tool into an agent that triggers its own actions.
  *
- * 核心设计：
- *   - 任务存储在 ~/.novus/autonomous/tasks.json
- *   - 每次会话启动时，identity 自动检查待执行任务
- *   - 支持三种触发类型：on-start / periodic / event
- *   - 任务执行结果记录到执行历史
+ * Core design:
+ *   - Tasks stored in ~/.novus/autonomous/tasks.json
+ *   - On every session start, identity checks for due tasks
+ *   - Three trigger types: on-start / periodic / event
+ *   - Execution results recorded to execution history
  *
- * 注意：由于能力边界（不能跑daemon），不实现真正的定时器，
- * 而是在每次启动时检查 periodic 任务是否到期。
+ * Note: due to capability boundaries (can't run a daemon), no real timers are implemented —
+ * instead, each startup checks whether periodic tasks are due.
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -21,42 +21,42 @@ const AUTONOMOUS_DIR = join(homedir(), ".novus", "autonomous");
 const TASKS_FILE = join(AUTONOMOUS_DIR, "tasks.json");
 const HISTORY_FILE = join(AUTONOMOUS_DIR, "history.jsonl");
 
-// ===== 数据结构 =====
+// ===== Data structures =====
 
 export type TaskTrigger = "on-start" | "on-start-recurring" | "periodic" | "event" | "delay-until";
 export type TaskStatus = "active" | "paused" | "completed" | "failed";
 
 export interface AutonomousTask {
   id: string;
-  /** 任务名称 */
+  /** Task name */
   name: string;
-  /** 任务描述（要做什么的具体指令） */
+  /** Task description (concrete instruction of what to do) */
   instruction: string;
-  /** 触发类型 */
+  /** Trigger type */
   trigger: TaskTrigger;
-  /** periodic 任务的间隔（小时），默认24 */
+  /** Interval for periodic tasks (hours), default 24 */
   intervalHours?: number;
-  /** event 触发的条件描述，如 "knowledge > 100" */
+  /** Event trigger condition, e.g. "knowledge > 100" */
   eventCondition?: string;
-  /** delay-until 指定时间后才触发（ISO datetime），过期后一次性执行 */
+  /** delay-until: fires once at/after the given time (ISO datetime) */
   delayUntil?: string;
-  /** 任务状态 */
+  /** Task status */
   status: TaskStatus;
-  /** 创建时间 */
+  /** Created at */
   createdAt: string;
-  /** 最后执行时间 */
+  /** Last run at */
   lastRunAt?: string;
-  /** 下次应该执行的时间 */
+  /** Next due time */
   nextRunAt?: string;
-  /** 执行次数 */
+  /** Run count */
   runCount: number;
-  /** 成功次数 */
+  /** Success count */
   successCount: number;
-  /** 标签，方便分类 */
+  /** Tags for classification */
   tags?: string[];
-  /** 最近一次质量评分 0-1 */
+  /** Latest quality score 0-1 */
   lastQualityScore?: number;
-  /** 连续低质量次数 */
+  /** Consecutive low-quality count */
   lowQualityStreak?: number;
 }
 
@@ -71,7 +71,7 @@ export interface TaskExecution {
   error?: string;
 }
 
-// ===== 存储 =====
+// ===== Storage =====
 
 function ensureDir(): void {
   if (!existsSync(AUTONOMOUS_DIR)) {
@@ -80,7 +80,7 @@ function ensureDir(): void {
 }
 
 function generateId(): string {
-  // 时间戳(10char) + 随机字符(8char) = 18位唯一ID
+  // timestamp(10ch) + random chars(8ch) = 18-char unique ID
   return Date.now().toString(36).padStart(6, '0') + Math.random().toString(36).slice(2, 10);
 }
 
@@ -98,9 +98,9 @@ function saveTasks(tasks: AutonomousTask[]): void {
   writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2), "utf-8");
 }
 
-// ===== 核心 API =====
+// ===== Core API =====
 
-/** 注册一个新任务 */
+/** Register a new task */
 export function registerTask(opts: {
   name: string;
   instruction: string;
@@ -109,9 +109,9 @@ export function registerTask(opts: {
   eventCondition?: string;
   delayUntil?: string;
   tags?: string[];
-  /** 最近一次质量评分 0-1 */
+  /** Latest quality score 0-1 */
   lastQualityScore?: number;
-  /** 连续低质量次数 */
+  /** Consecutive low-quality count */
   lowQualityStreak?: number;
 }): AutonomousTask {
   const now = new Date().toISOString();
@@ -131,7 +131,7 @@ export function registerTask(opts: {
 
   // Set initial nextRunAt
   if (opts.trigger === "periodic") {
-    task.nextRunAt = now; // 首次注册后就可以执行
+    task.nextRunAt = now; // runs right after first registration
   } else if (opts.trigger === "on-start" || opts.trigger === "on-start-recurring") {
     task.nextRunAt = now;
   } else if (opts.trigger === "delay-until") {
@@ -145,14 +145,14 @@ export function registerTask(opts: {
   return task;
 }
 
-/** 列出所有任务，支持按状态过滤 */
+/** List all tasks, optionally filtered by status */
 export function listTasks(filter?: TaskStatus): AutonomousTask[] {
   const tasks = loadTasks();
   if (filter) return tasks.filter(t => t.status === filter);
   return tasks;
 }
 
-/** 暂停/恢复/完成/删除任务 */
+/** Pause/resume/complete/delete a task */
 export function updateTaskStatus(taskId: string, status: TaskStatus): AutonomousTask | null {
   const tasks = loadTasks();
   const task = getTask(taskId);
@@ -162,7 +162,7 @@ export function updateTaskStatus(taskId: string, status: TaskStatus): Autonomous
   return task;
 }
 
-/** 删除任务 */
+/** Delete a task */
 export function deleteTask(taskId: string): boolean {
   const tasks = loadTasks();
   const task = getTask(taskId);
@@ -175,28 +175,28 @@ export function deleteTask(taskId: string): boolean {
 }
 
 /**
- * 获取单个任务 —— 支持完整ID或前缀匹配。
- * 先尝试精确匹配，再尝试前缀匹配。
- * 如果前缀匹配到多个任务，返回 null（不明确的引用）。
+ * Get a single task — by full ID or prefix.
+ * Tries exact match first, then prefix match.
+ * If a prefix matches multiple tasks, returns null (ambiguous reference).
  */
 export function getTask(taskId: string): AutonomousTask | null {
   const tasks = loadTasks();
-  // 精确匹配
+  // exact match
   const exact = tasks.find(t => t.id === taskId);
   if (exact) return exact;
-  // 前缀匹配
+  // prefix match
   const prefixMatches = tasks.filter(t => t.id.startsWith(taskId));
   if (prefixMatches.length === 1) return prefixMatches[0];
   return null;
 }
 
 /**
- * 计算任务ID的最短唯一前缀，用于显示。
- * 确保显示的前缀能唯一标识该任务。
+ * Compute the shortest unique prefix of a task ID, for display.
+ * Ensures the displayed prefix uniquely identifies the task.
  */
 export function shortId(taskId: string): string {
   const tasks = loadTasks();
-  // 从4位开始递增，直到唯一
+  // start at 4 chars, grow until unique
   for (let len = 4; len <= taskId.length; len++) {
     const prefix = taskId.slice(0, len);
     const matches = tasks.filter(t => t.id.startsWith(prefix));
@@ -206,9 +206,9 @@ export function shortId(taskId: string): string {
 }
 
 /**
- * 检查哪些任务应该执行。
- * 不实际执行，只返回「建议执行」的任务列表。
- * 由 identity.ts 在启动时调用，注入到系统提示中。
+ * Check which tasks should run.
+ * Doesn't execute — returns the list of "due" tasks.
+ * Called by identity.ts at startup, injected into the system prompt.
  */
 export function getDueTasks(): AutonomousTask[] {
   const tasks = loadTasks();
@@ -220,7 +220,7 @@ export function getDueTasks(): AutonomousTask[] {
 
     if (task.trigger === "on-start" || task.trigger === "on-start-recurring" || task.trigger === "periodic" || task.trigger === "delay-until") {
       if (!task.nextRunAt) {
-        // 没有 nextRunAt，设为现在
+        // no nextRunAt — set to now
         task.nextRunAt = now.toISOString();
         due.push(task);
         continue;
@@ -230,19 +230,19 @@ export function getDueTasks(): AutonomousTask[] {
         due.push(task);
       }
     }
-    // event 类型的任务不在这里触发，需要外部判断条件
+    // event tasks aren't triggered here; external condition checks needed
   }
 
   return due;
 }
 
 /**
- * 标记任务已执行，更新调度时间。
- * 由 auto-manage 工具在任务执行后调用。
+ * Mark a task as executed, update scheduling.
+ * Called by the auto-manage tool after a task runs.
  */
 /**
- * 评估任务执行的质量（0-1）
- * 基于 summary 内容分析：长度、信息密度、是否有实质发现
+ * Evaluate task execution quality (0-1)
+ * Based on summary analysis: length, info density, real findings
  */
 function evaluateQuality(summary: string | undefined): number {
   if (!summary || summary.trim().length === 0) return 0;
@@ -253,14 +253,14 @@ function evaluateQuality(summary: string | undefined): number {
   if (/网络限制|未执行|跳过|skip|not executed|skipped|network restriction/i.test(s)) return 0.1;
   if (/正常|无异常|无问题|no issue|^ok\b|^all good/i.test(s) && s.length < 30) return 0.2;
 
-  let score = 0.5; // 基准分
+  let score = 0.5; // baseline score
 
-  // 长度加分（有实质内容通常更长）
+  // length bonus (substantial content is usually longer)
   if (s.length > 50) score += 0.1;
   if (s.length > 100) score += 0.1;
   if (s.length > 200) score += 0.1;
 
-  // 信息密度加分：包含具体数据/发现
+  // info-density bonus: contains concrete data/findings
   if (/\\d+/.test(s)) score += 0.05;
   if (/发现|找到|识别|追踪到|获取|完成.*发现|found|identified|discovered|tracked|completed/i.test(s)) score += 0.1;
   if (/(?:https?:|arXiv|github\\.com|\\$|USD|\\d+%)/.test(s)) score += 0.05;
@@ -281,41 +281,41 @@ export function markTaskExecuted(taskId: string, success: boolean, summary?: str
     task.successCount++;
   }
 
-  // 评估产出质量
+  // assess output quality
   const quality = evaluateQuality(summary);
   task.lastQualityScore = quality;
 
-  // 连续低质量检测：质量 < 0.3 算低质量
+  // consecutive low-quality detection: quality < 0.3 counts as low
   if (quality < 0.3) {
     task.lowQualityStreak = (task.lowQualityStreak ?? 0) + 1;
   } else {
     task.lowQualityStreak = 0;
   }
 
-  // 自动降频/暂停策略
+  // auto-throttle/pause policy
   if (task.lowQualityStreak >= 4) {
     task.status = "paused";
   } else if (task.lowQualityStreak >= 2 && task.trigger === "periodic") {
-    // 连续2次低质量：间隔翻倍，最多翻到7天
+    // 2 consecutive low-quality: double the interval, max 7 days
     task.intervalHours = Math.min((task.intervalHours ?? 24) * 2, 168);
   }
 
-  // 更新下次执行时间
+  // update next run time
   if (task.trigger === "periodic") {
     const intervalMs = (task.intervalHours ?? 24) * 60 * 60 * 1000;
     const lastRun = task.lastRunAt ? new Date(task.lastRunAt) : new Date();
     task.nextRunAt = new Date(lastRun.getTime() + intervalMs).toISOString();
   }
 
-  // on-start / delay-until（一次性）任务执行成功后暂停
+  // on-start / delay-until (one-shot) tasks pause after success
   if ((task.trigger === "on-start" || task.trigger === "delay-until") && success) {
     task.status = "paused";
   }
-  // on-start-recurring 任务不暂停，下次启动继续执行
+  // on-start-recurring tasks don't pause; run again next startup
 
   saveTasks(tasks);
 
-  // 记录执行历史
+  // record execution history
   recordExecution({
     taskId: task.id,
     taskName: task.name,
@@ -329,19 +329,19 @@ export function markTaskExecuted(taskId: string, success: boolean, summary?: str
   return task;
 }
 
-/** 记录执行历史 */
+/** Record execution history */
 function recordExecution(exec: TaskExecution): void {
   ensureDir();
   appendFileSync(HISTORY_FILE, JSON.stringify(exec) + "\n", "utf-8");
 }
 
-/** 获取执行历史 */
+/** Get execution history */
 /** Max history entries before rotation */
 const MAX_HISTORY_ENTRIES = 500;
 
 /**
- * 获取执行历史，自动轮转超大文件。
- * 保留最近 MAX_HISTORY_ENTRIES 条，防止 JSONL 无限增长。
+ * Get execution history, auto-rotating oversized files.
+ * Keeps the last MAX_HISTORY_ENTRIES entries to prevent unbounded JSONL growth.
  */
 export function getExecutionHistory(limit: number = 20): TaskExecution[] {
   if (!existsSync(HISTORY_FILE)) return [];
@@ -369,8 +369,8 @@ export function getExecutionHistory(limit: number = 20): TaskExecution[] {
 }
 
 /**
- * 生成自主任务摘要 —— 供 identity 启动时注入
- * 到期任务要求 agent 主动执行（auto-manage action=run）
+ * Generate the autonomous task summary — for identity to inject at startup;
+ * due tasks instruct the agent to run them proactively (auto-manage action=run)
  */
 export function buildAutonomousSummary(): string {
   const due = getDueTasks();
@@ -380,7 +380,7 @@ export function buildAutonomousSummary(): string {
 
   const parts: string[] = [];
 
-  // 活跃任务：紧凑一行
+  // active tasks: one compact line each
   const taskNames = active.slice(0, 4).map(t => {
     const icon = t.trigger === "on-start" || t.trigger === "on-start-recurring" ? "🚀" : t.trigger === "periodic" ? "🔄" : t.trigger === "delay-until" ? "⏰" : "⚡";
     return icon + t.name;
@@ -388,7 +388,7 @@ export function buildAutonomousSummary(): string {
   const suffix = active.length > 4 ? " +" + (active.length - 4) : "";
   parts.push(active.length + " active (" + taskNames + suffix + ")");
 
-  // 到期任务：明确要求执行
+  // due tasks: explicitly instruct execution
   if (due.length > 0) {
     const dueNames = due.map(t => t.name).join(", ");
     parts.push(due.length + " due: " + dueNames);
@@ -397,7 +397,7 @@ export function buildAutonomousSummary(): string {
     }
   }
 
-  // event 任务：展示触发条件，让 agent 知道何时执行
+  // event tasks: show trigger conditions so the agent knows when to run
   const eventTasks = active.filter(t => t.trigger === "event" && t.eventCondition);
   if (eventTasks.length > 0) {
     const eventInfo = eventTasks.map(t => `${t.name}（${t.eventCondition} → auto-manage action=run taskId=${shortId(t.id)}）`).join("; ");

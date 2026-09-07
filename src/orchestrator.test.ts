@@ -114,7 +114,7 @@ describe("ChainOrchestrator", () => {
 	});
 
 	it("prune 清理旧记录", () => {
-		// 填满并触发清理
+		// fill up and trigger eviction
 		for (let i = 0; i < 12; i++) {
 			const exec = orch.start(mockChain, `测试${i}`);
 			orch.complete(exec.id);

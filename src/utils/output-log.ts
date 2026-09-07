@@ -1,18 +1,18 @@
 /**
- * output-log — 交互日志管理器
+ * output-log — interactive output logger
  *
- * 目标：把完整的交互内容写入文件保存，界面上只保留精简的一页。
- * 这样聊天界面不会被大量原始输出淹没，但完整内容随时可查。
+ * Goal: write full interaction content to a file; the UI keeps only a compact one-pager.
+ * The chat UI won't drown in raw output, but full content stays one command away.
  *
- * 用法：
+ * Usage:
  *   import { log } from "./output-log.ts";
- *   const id = log.start("任务名");
- *   log.append(id, fetchResult);    // 完整内容写入文件
- *   log.append(id, bashOutput);     // 同上
- *   log.done(id);                   // 结束
+ *   const id = log.start("task name");
+ *   log.append(id, fetchResult);    // full content goes to the file
+ *   log.append(id, bashOutput);     // same
+ *   log.done(id);                   // finish
  *   
- *   界面上只显示: "[log:id] 任务名 — 已记录 N 行，log view-log 查看"
- *   想看详情: view-log id=xxx
+ *   UI shows only: "[log:id] task name — N lines recorded, `view-log` to view"
+ *   for details: view-log id=xxx
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
@@ -29,7 +29,7 @@ function ensureDir(): void {
 
 let seq = 0;
 
-/** 开始一个日志会话，返回 logId */
+/** Start a log session, returns a logId */
 export function start(name: string): string {
   ensureDir();
   seq++;
@@ -41,13 +41,13 @@ export function start(name: string): string {
   return logId;
 }
 
-/** 教训应用 lsn_mt8w4cese6u12h（来自联邦）：超 50MB 自动轮转，防止无上限膨胀 */
+/** Lesson applied lsn_mt8w4cese6u12h (from the federation): auto-rotate above 50MB to prevent unbounded growth */
 const MAX_LOG_BYTES = 50 * 1024 * 1024;
 function rotateIfLarge(path: string): void {
   try { if (statSync(path).size > MAX_LOG_BYTES) renameSync(path, path + ".1"); } catch {}
 }
 
-/** 追加完整内容到日志文件 */
+/** Append full content to the log file */
 export function append(logId: string, label: string, content: string): void {
   ensureDir();
   const path = join(LOG_DIR, logId + ".log");
@@ -56,7 +56,7 @@ export function append(logId: string, label: string, content: string): void {
   appendFileSync(path, block, "utf-8");
 }
 
-/** 结束日志 */
+/** Finish the log */
 export function done(logId: string): void {
   ensureDir();
   const footer = `<<< END | ${new Date().toISOString()}\n`;
@@ -64,26 +64,26 @@ export function done(logId: string): void {
   appendFileSync(join(LOG_DIR, logId + ".log"), footer, "utf-8");
 }
 
-/** 获取日志文件的完整路径 */
+/** Full path of the log file */
 export function pathOf(logId: string): string {
   return join(LOG_DIR, logId + ".log");
 }
 
-/** 读取完整日志 */
+/** Read the full log */
 export function read(logId: string): string {
   const path = join(LOG_DIR, logId + ".log");
   if (!existsSync(path)) return `[log ${logId} not found]`;
   return readFileSync(path, "utf-8");
 }
 
-/** 统计行数 */
+/** Count lines */
 export function lineCount(logId: string): number {
   const path = join(LOG_DIR, logId + ".log");
   if (!existsSync(path)) return 0;
   return readFileSync(path, "utf-8").split("\n").length;
 }
 
-/** 列出最近的日志ID列表 */
+/** List recent log IDs */
 export function recent(n: number = 10): string[] {
   ensureDir();
   return readdirSync(LOG_DIR)
@@ -94,7 +94,7 @@ export function recent(n: number = 10): string[] {
     .map(f => f.replace(/\.log$/, ""));
 }
 
-/** 生成精简的界面显示文本（只显示开头几行 + 结尾几行） */
+/** Build the compact UI display text (first few lines + last few lines) */
 export function preview(logId: string, maxLines: number = 15): string {
   const path = join(LOG_DIR, logId + ".log");
   if (!existsSync(path)) return `[log ${logId} not found]`;
@@ -115,7 +115,7 @@ export function preview(logId: string, maxLines: number = 15): string {
   ].join("\n");
 }
 
-/** 构建界面简洁引用文本 */
+/** Build the compact UI quote text */
 export function ref(logId: string, name: string): string {
   const lc = lineCount(logId);
   return `📋 [${logId}] ${name} — ${lc} lines recorded.\`view-log id=${logId}\` to view full content`;

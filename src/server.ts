@@ -43,10 +43,10 @@ import { exec } from "node:child_process";
 import { isTransientConnectionError } from "./agent.ts";
 
 /**
- * Server 层 watchdog：LLM 连接错误（Error: terminated 等）时自动重试，对 API 调用方透明。
- * - 判定：返回消息末尾 stopReason=error 且 errorMessage 为瞬时连接错误（复用 agent 层判定）
- * - 语义：与 CLI watchdog 一致——注入「继续」提示后重试，最多 5 次（每次间隔 2s）
- * - 并发安全：基于返回消息判定，不依赖全局信号文件（server 多会话并发会串号）
+ * Server-layer watchdog: auto-retries transient LLM connection errors (Error: terminated etc.), transparent to API callers.
+ * - detection: response ends with stopReason=error and errorMessage is a transient connection error (reuses the agent-layer check)
+ * - semantics: same as the CLI watchdog — inject a "continue" prompt and retry, up to 5 times (2s apart)
+ * - concurrency-safe: judges from the response message, no global signal file (server runs concurrent sessions)
  */
 async function promptWithWatchdog(
 	agent: MinAgent,
@@ -67,7 +67,7 @@ async function promptWithWatchdog(
 			return newMessages;
 		}
 		console.log(`[WATCHDOG] LLM connection error (${errMsg}), auto-retry ${attempt + 1}/${MAX_RETRIES}...`);
-		// 累积已有消息（含错误的那条），注入 watchdog 继续提示后重试
+		// accumulate existing messages (including the failed one), inject the watchdog continue prompt, retry
 		messages = [...(messages ?? []), ...newMessages];
 		currentPrompt = "[watchdog] The previous response was interrupted by a connection error. Please continue the previous task.";
 		await new Promise((r) => setTimeout(r, 2000));
@@ -515,7 +515,7 @@ async function handleRoute(req: IncomingMessage, res: ServerResponse, url: URL, 
 			return handleDeleteTenant(res, path.slice("/api/tenants/".length));
 		}
 
-		// 文件上传服务（租户隔离）
+		// file upload service (tenant-isolated)
 		if (path === "/api/upload" && req.method === "POST") return handleUpload(req, res, tid);
 		if (path === "/api/files" && req.method === "GET") return handleListFiles(req, res, tid);
 		if (path.startsWith("/api/files/") && req.method === "GET") {
@@ -554,7 +554,7 @@ async function handleLogin(req: IncomingMessage, res: ServerResponse, url: URL):
 	});
 }
 
-// 从 package.json 动态读取版本号
+// read the version dynamically from package.json
 let _versionCache = "";
 function getVersion(): string {
 	if (_versionCache) return _versionCache;
@@ -645,7 +645,7 @@ async function handleStreamChat(
 	prompt: string,
 	res: ServerResponse,
 ): Promise<void> {
-	// AbortController: 前端断开连接时中断 agent 执行（等同 CLI 的 ESC）
+	// AbortController: abort agent execution when the client disconnects (same as ESC in the CLI)
 	const abortCtrl = new AbortController();
 	req.on("close", () => {
 		if (!abortCtrl.signal.aborted) {
@@ -723,11 +723,11 @@ async function handleStreamChat(
 		if (!hadTextDelta) {
 			sendSse("error", { message: "AI returned no content. Possibly API rate limit (429) or network issue — please retry." });
 		}
-		// 保存已生成的消息（即使被中断，partial 内容也有价值）
+		// save generated messages (even when interrupted, partial content is valuable)
 		if (hadTextDelta) tenantSaveMessages(tenantId, sessionId, newMessages);
 		sendSse("done", { sessionId });
 	} catch (err) {
-		// 客户端主动断开 = 正常中断，不需要报错
+		// client-initiated disconnect = normal interruption, no error needed
 		if (abortCtrl.signal.aborted) {
 			console.log(`[SSE] agent aborted by client (sessionId=${sessionId.slice(0, 8)})`);
 		} else {

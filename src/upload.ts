@@ -1,8 +1,8 @@
 /**
- * upload.ts — 租户隔离文件上传服务
+ * upload.ts — tenant-isolated file upload service
  * 
- * 每个 tenant 独立目录，文件 UUID 命名，防路径穿越。
- * 内嵌到 novus serve 使用。
+ * Per-tenant directories, UUID filenames, path-traversal safe.
+ * Embedded in novus serve.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, unlinkSync, createReadStream } from "node:fs";
@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-// ── 配置 ────────────────────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────
 
 const UPLOAD_BASE = join(homedir(), ".novus", "tenants");
 const MAX_FILE_SIZE = 10 * 1024 * 1024;  // 10MB
@@ -32,7 +32,7 @@ interface FileEntry {
 	uploadedAt: string;
 }
 
-// ── 文件元数据 ──────────────────────────────────────────────────────
+// ── File metadata ──────────────────────────────────────────────────────
 
 function metaPath(tenantId: string): string {
 	return join(UPLOAD_BASE, tenantId, ".files.json");
@@ -65,7 +65,7 @@ function tenantSize(tenantId: string): number {
 	return total;
 }
 
-// ── 简易 multipart 解析 ─────────────────────────────────────────────
+// ── Minimal multipart parser ─────────────────────────────────────────────
 
 async function parseMultipart(req: IncomingMessage): Promise<{ filename: string; mimeType: string; data: Buffer } | null> {
 	const ct = req.headers["content-type"] || "";
@@ -77,7 +77,7 @@ async function parseMultipart(req: IncomingMessage): Promise<{ filename: string;
 	for await (const chunk of req) chunks.push(Buffer.from(chunk));
 	const body = Buffer.concat(chunks);
 
-	// 解析 multipart 分段
+	// parse multipart sections
 	const parts = body.toString("binary").split("--" + boundary);
 	for (const part of parts) {
 		if (part.startsWith("--") || part.trim() === "") continue;
@@ -87,15 +87,15 @@ async function parseMultipart(req: IncomingMessage): Promise<{ filename: string;
 
 		const header = part.slice(0, headerEnd);
 		const rawData = part.slice(headerEnd + 4);
-		// 去掉末尾 \r\n
+		// strip trailing \r\n
 		const dataEnd = rawData.lastIndexOf("\r\n--");
 		const data = dataEnd > 0 ? rawData.slice(0, dataEnd) : rawData.replace(/\r\n$/, "");
 
-		// 提取 filename
+		// extract filename
 		const fnMatch = header.match(/filename="([^"]+)"/);
 		if (!fnMatch) continue;
 
-		// 提取 Content-Type
+		// extract Content-Type
 		const typeMatch = header.match(/Content-Type:\s*([^\r\n]+)/i);
 		const mimeType = typeMatch ? typeMatch[1].trim() : "application/octet-stream";
 
@@ -108,7 +108,7 @@ async function parseMultipart(req: IncomingMessage): Promise<{ filename: string;
 	return null;
 }
 
-// ── API 处理器 ──────────────────────────────────────────────────────
+// ── API handlers ──────────────────────────────────────────────────────
 
 export async function handleUpload(req: IncomingMessage, res: ServerResponse, tenantId: string): Promise<void> {
 	try {
@@ -117,30 +117,30 @@ export async function handleUpload(req: IncomingMessage, res: ServerResponse, te
 
 		const { filename, mimeType, data } = parsed;
 
-		// 校验文件类型
+		// validate file type
 		const ext = ALLOWED_TYPES[mimeType];
 		if (!ext) {
 			return sendJson(res, 400, { error: `Unsupported file type: ${mimeType}. Allowed: ${Object.keys(ALLOWED_TYPES).join(", ")}` });
 		}
 
-		// 校验大小
+		// validate size
 		if (data.length > MAX_FILE_SIZE) {
 			return sendJson(res, 413, { error: `File too large: ${(data.length / 1024 / 1024).toFixed(1)}MB. Max: 10MB` });
 		}
 
-		// 校验租户容量
+		// validate tenant quota
 		const currentSize = tenantSize(tenantId);
 		if (currentSize + data.length > MAX_TENANT_SIZE) {
 			return sendJson(res, 507, { error: `Tenant storage full: ${(currentSize / 1024 / 1024).toFixed(1)}MB used of 100MB` });
 		}
 
-		// 保存文件
+		// save file
 		const id = randomUUID();
 		const safeName = id + ext;
 		const filePath = join(uploadDir(tenantId), safeName);
 		writeFileSync(filePath, data);
 
-		// 更新元数据
+		// update metadata
 		const entries = readMeta(tenantId);
 		const entry: FileEntry = {
 			id,
@@ -188,13 +188,13 @@ export function handleGetFile(req: IncomingMessage, res: ServerResponse, tenantI
 	const ext = ALLOWED_TYPES[entry.type] || "";
 	const filePath = join(uploadDir(tenantId), fileId + ext);
 	if (!existsSync(filePath)) {
-		// 尝试在元数据中删除无效记录
+		// try to remove the invalid record from metadata
 		const entries = readMeta(tenantId).filter(e => e.id !== fileId);
 		writeMeta(tenantId, entries);
 		return sendJson(res, 404, { error: "File not found on disk" });
 	}
 
-	// ?download=1 → 微信等浏览器用 attachment 触发下载
+	// ?download=1 → triggers attachment download in WeChat and other browsers
 	const url = new URL(req.url || "/", "http://localhost");
 	const disposition = url.searchParams.get("download") === "1"
 		? `attachment; filename="${encodeURIComponent(entry.name)}"`
@@ -223,7 +223,7 @@ export function handleDeleteFile(_req: IncomingMessage, res: ServerResponse, ten
 	sendJson(res, 200, { deleted: fileId });
 }
 
-// ── 辅助 ─────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────
 
 function sendJson(res: ServerResponse, status: number, data: object): void {
 	const body = JSON.stringify(data);

@@ -110,9 +110,9 @@ export function isTransientConnectionError(errorMessage: string): boolean {
 	if (/connection\s*(error|reset|refused|failed|closed)/.test(msg)) return true;
 	if (/(econnrefused|econnreset|enotfound|etimedout|socket hang up)/.test(msg)) return true;
 	if (/(timeout|timed? ?out|abort|terminated)/.test(msg)) return true;
-	if (/(5\d{2}|overloaded|rate.?limit|429)/.test(msg)) return true; // 5xx 全覆盖（原只匹配 502/503/504，漏了 500）
+	if (/(5\d{2}|overloaded|rate.?limit|429)/.test(msg)) return true; // full 5xx coverage (previously matched only 502/503/504, missed 500)
 	if (/network\s*(error|failed|unreachable)/.test(msg)) return true;
-	if (/(网络错误|稍后重试|api_error)/.test(msg)) return true; // 国内中转常见中文报错（如 GLM code 1234）
+	if (/(网络错误|稍后重试|api_error)/.test(msg)) return true; // Chinese error messages common on domestic relays (e.g. GLM code 1234)
 	return false;
 }
 
@@ -294,7 +294,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 	const writeOut = onWrite ?? ((text: string) => { process.stdout.write(text); });
 	const tools: AgentTool<any>[] = await createAllTools(cwd);
 
-	// 联邦系统自注册
+	// federation system self-registration
 
 	const key = resolveApiKey(apiKey);
 	const resolvedModel = buildModel(model, baseUrl, maxTokens);
@@ -333,16 +333,16 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 	let runtimeLastToolName = "";
 	let runtimeLastErrorMsg = "";
 	// ── Tool call budget per prompt turn ──
-	// 交互式默认 20（防 over-tool-calling）；自主/进化任务传入更高上限以支持长流程
+	// interactive default 20 (guards over-tool-calling); autonomous/evolution tasks pass a higher limit for long flows
 	const MAX_TOOL_CALLS_PER_TURN = maxToolCallsPerTurn ?? 20;
 	let runtimeTurnCallCount = 0;
 
-	// ── Real-time behavior guard (Step 5: 实时行为校正器) ──
-	// 追踪session级别的工具调用模式，实时检测over-tool-calling等行为
+	// ── Real-time behavior guard (Step 5: real-time behavior corrector) ──
+	// tracks session-level tool-call patterns, detects over-tool-calling etc. in real time
 	const runtimeToolCallLog: Array<{ tool: string; isError: boolean }> = [];
 	let runtimeSessionCallCount = 0;
-	const SAME_TOOL_WARN_THRESHOLD = 7; // 同一工具连续7次触发警告
-	const SESSION_TOOL_BUDGET = 150; // session总工具调用预算
+	const SAME_TOOL_WARN_THRESHOLD = 7; // 7 consecutive same-tool calls trigger a warning
+	const SESSION_TOOL_BUDGET = 150; // total tool-call budget per session
 
 	function getRecentSameToolCount(toolName: string): number {
 		let count = 0;
@@ -354,7 +354,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 	}
 
 	function getToolCallsInCurrentBurst(): number {
-		// 同一turn内的工具调用数（即 runtimeToolCallLog 中 prompt() 重置后的全部条目）
+		// tool calls within the same turn (all entries in runtimeToolCallLog since prompt() reset)
 		return runtimeToolCallLog.length;
 	}
 
@@ -418,7 +418,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				runtimeLastToolName = "";
 				runtimeLastErrorMsg = "";
 			}
-			// 记录到实时行为日志
+			// record to the real-time behavior log
 			runtimeToolCallLog.push({
 				tool: ctx.toolCall.name,
 				isError: ctx.isError,
@@ -464,7 +464,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 
 			// ── Helper functions ──
 			const SPIN = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
-			const AI_BUF_MAX = 200; // 兜底 flush 阈值：超长无换行文本的截断点
+			const AI_BUF_MAX = 200; // forced-flush threshold: truncation point for overlong lineless text
 			// Tools whose output is too noisy for terminal display
 			const SILENT_TOOLS = new Set(['session-buffer', 'echo', 'auto-manage', 'healthy', 'fed-knowledge', 'smart-router', 'chain-orchestrator']);
 
@@ -517,8 +517,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 					if (args.command) {
 						let c = String(args.command).split("\n")[0].trim();
 						c = c.replace(/^cd (\S+) && /, "");
-						c = c.replace(/\s*2>&1.*$/, "");            // 去 stderr 重定向及之后的 tail/echo 装饰
-						c = c.replace(/\s*\|\s*tail\s+[^|]*$/, ""); // 去结尾的 | tail -N
+						c = c.replace(/\s*2>&1.*$/, "");            // strip stderr redirection and any tail/echo decoration after it
+						c = c.replace(/\s*\|\s*tail\s+[^|]*$/, ""); // strip a trailing | tail -N
 						return c.length > 45 ? c.slice(0, 42) + "..." : c;
 					}
 					if (args.path) {
@@ -572,7 +572,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 
 			const showStatus = (text: string) => {
 				stderrCapture.suppress(() => {
-					// \r = 回车到行首, \x1b[K = 清到行尾, 然后写 spinner
+					// \r = carriage return, \x1b[K = clear to EOL, then draw the spinner
 					process.stderr.write("\r\x1b[K\x1b[90m" + text + "\x1b[0m");
 				});
 				statusLine = text;
@@ -580,7 +580,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			const hideStatus = () => {
 				if (statusLine.length > 0) {
 					stderrCapture.suppress(() => {
-						// 清行后换行，确保下一个输出从新行开始
+						// newline after clearing the line so the next output starts fresh
 						process.stderr.write("\r\x1b[K\n");
 					});
 					statusLine = "";
@@ -610,7 +610,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			};
 			const pushAiDelta = (delta: string) => {
 				aiTextBuffer += delta;
-				// 按自然段落边界 flush：遇到换行符就把该行完整记录，避免按字符数硬切成碎片
+				// flush at natural line boundaries: record complete lines on newline, don't hard-split by char count
 				const nlIdx = aiTextBuffer.lastIndexOf("\n");
 				if (nlIdx >= 0) {
 					const complete = aiTextBuffer.slice(0, nlIdx + 1).replace(/\n$/, "");
@@ -624,7 +624,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			};
 
 			let messageStarted = false;
-			// 思考阶段动态指示：在首个输出（文本/工具）前显示动画，避免终端“卡住”感
+			// dynamic thinking indicator: animate before the first output (text/tool) so the terminal doesn't feel stuck
 			spinStart("🤔 Thinking…");
 			let contextOverflowRetry = false;
 			let newMessages = await runAgentLoop([userMessage], fullContext, config, async (event) => {
@@ -636,7 +636,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 					}
 					const ame = event.assistantMessageEvent;
 					if (ame.type === "text_delta") {
-						hideStatus(); // 首个文本输出：清除思考/工具 spinner
+						hideStatus(); // first text output: clear the thinking/tool spinner
 						writeOut(ame.delta);
 						pushAiDelta(ame.delta);
 						hadOutput = true;
@@ -856,7 +856,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			}
 
 			// Log connection error for watchdog to pick up (via buffer + dedicated signal file)
-			// 信号文件不经过 NOVUS_DAEMON gate —— daemon 模式下 buf() 被吞，靠它保底
+			// the signal file bypasses the NOVUS_DAEMON gate — buf() is swallowed in daemon mode, this is the safety net
 			if (connectionErrorDetected) {
 				buf("[CONNECTION_ERROR] " + connectionErrorDetected);
 				watchdogSignal(connectionErrorDetected);
@@ -879,8 +879,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				.map(l => l.replace(/\x1b\[[0-9;]*[a-zA-Z~]/g, "").replace(/\r/g, "").replace(/\s+/g, " ").trim())
 				.filter(Boolean).join("\n");
 			if (stderrOutput) {
-				// "Error: terminated" 单独出现 = 子进程收尾时被 kill，命令实际已成功。
-				// 属无害噪音：既不注入上下文，也不打印到界面（避免误导用户以为出错）。
+				// a lone "Error: terminated" = the child process was killed during teardown; the command actually succeeded.
+				// harmless noise: don't inject into context, don't print to the UI (avoids misleading the user into thinking it failed).
 				const isOnlyTerminated = /^Error: terminated\.?\s*$/i.test(stderrOutput.trim());
 				if (isOnlyTerminated) {
 					return newMessages;

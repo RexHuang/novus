@@ -356,7 +356,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 		},
 	});
 
-	// 后台自动拉起 daemon 调度器（如果还没运行）
+	// auto-start the daemon scheduler in the background (if not already running)
 	let daemonProcess: import("node:child_process").ChildProcess | null = null;
 	try {
 		const { daemonStatus } = await import("./autonomous/daemon-scheduler.ts");
@@ -371,7 +371,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 			console.log("🕐 Daemon scheduler started in background");
 		}
 	} catch {
-		// daemon 启动失败不影响主对话
+		// daemon startup failure doesn't affect the main conversation
 	}
 
 	// Accumulate all messages for the session
@@ -473,7 +473,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 
 		const doWatchdogContinue = (reason: string) => {
 			if (watchdogFired) { stopWatchdog(); return; }
-			// 防死循环：连续自动继续超过 5 次说明 API 持续故障，交回人工
+			// loop guard: 5+ consecutive auto-continues means the API is persistently failing — hand back to human
 			if (watchdogFireCount >= 5) {
 				stopWatchdog();
 				console.error("\x1b[31m🐕 Watchdog: auto-continued " + watchdogFireCount + " times, API keeps failing, handing back to human\x1b[0m");
@@ -589,8 +589,8 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 			} else {
 				const errMsg = err instanceof Error ? err.message : String(err);
 				console.error("Error:", errMsg);
-				// 教训应用：LLM API 抛异常路径也要写连接错误标记，否则 watchdog 快速恢复不触发
-				// （曾漏：仅 agent 内部 message_end 路径写标记，异常 reject 路径绕过了检测）
+				// lesson applied: the LLM API exception path must also write the connection-error marker, or the watchdog quick-recovery never fires
+				// (past bug: only the agent-internal message_end path wrote the marker; the exception/reject path bypassed detection)
 				if (isTransientConnectionError(errMsg)) {
 					buf("[CONNECTION_ERROR] " + errMsg);
 				}
@@ -602,11 +602,11 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 				// Clear any stray output from current line before showing prompt
 				process.stdout.write("\r\x1b[K");
 				rl.prompt();
-				// 空闲时异步反思，不阻塞等待下一次输入
+				// async reflection while idle; don't block waiting for the next input
 				void reflectAfterTurn(sessionId, newMessages, messages).catch(() => {});
 
 				// Check if last turn had a connection error → start watchdog
-				// 双通道：信号文件（daemon 模式下 buf() 被 gate 吞，靠它保底）+ buffer 标记
+				// dual channel: signal file (buf() is gated in daemon mode, this is the safety net) + buffer marker
 				const sig = takeWatchdogSignal();
 				let hasConnError = !!sig;
 				if (!hasConnError) {
@@ -618,7 +618,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 								// Watchdog continuation succeeded — clear stale marker to prevent loop
 								const cleaned = bufContent.replace(/\[CONNECTION_ERROR\].*\n?/g, "");
 								writeFileSync(bufPath, cleaned, "utf-8");
-								// 计数重置统一交给下方推进判定，不在此处理
+								// counter resets are handled by the progress check below, not here
 							} else {
 								hasConnError = true;
 							}
@@ -628,9 +628,9 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 					}
 				}
 				if (hasConnError) startWatchdog(true);
-				// 推进判定：本轮由 watchdog 触发且未再出现连接错误
-				// → API 已恢复、任务在推进，重置计数（不算持续故障）。
-				// 只有连续中断且没有一轮正常完成才会累到上限。
+				// progress check: this turn was watchdog-triggered and no new connection error appeared
+				// → API recovered, task is progressing; reset the counter (not a persistent failure).
+				// the cap is only reached by consecutive interruptions with no normal completion in between.
 				if (isWatchdogContinuation && !hasConnError) {
 					isWatchdogContinuation = false;
 					if (watchdogFireCount > 0) {
@@ -696,7 +696,7 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 		}
 		rawInput.cleanup();
 		
-		// 会话结束 → 触发行为反射（异步，不阻塞退出）
+		// session end → trigger behavior reflection (async, doesn't block exit)
 		void (async () => {
 			try {
 				const result = reflectOnRecentSessions(3);
@@ -720,19 +720,19 @@ async function runInteractive(args: ParsedArgs): Promise<void> {
 		process.exit(0);
 	});
 
-	// ── ws-comm 后台监听：PC端发消息自动弹出 ──
+	// ── ws-comm background listener: PC messages pop up automatically ──
 	const WS_AGENT_ID = process.env.NOVUS_AGENT_ID || "phone-novus";
 	const WS_NOTIFY_FILE = join(tmpdir(), `novus-ws-notify-${WS_AGENT_ID}`);
 	const WS_INBOX_FILE = join(homedir(), ".novus", `ws-inbox-${WS_AGENT_ID}.jsonl`);
 	const WS_LASTTS_FILE = join(homedir(), ".novus", `ws-lastts-${WS_AGENT_ID}.txt`);
 	let wsWatcherTimer: ReturnType<typeof setInterval> | null = null;
-	// 持久化：重启后不从0重扫全部历史
+	// persistence: don't rescan the full history from 0 after restart
 	let wsLastInboxSize = existsSync(WS_LASTTS_FILE) ? parseInt(readFileSync(WS_LASTTS_FILE, "utf-8").trim(), 10) || 0 : 0;
 
 	const startWsWatcher = () => {
 		wsWatcherTimer = setInterval(() => {
 			try {
-				if (running) return; // 避免打断进行中的对话
+				if (running) return; // don't interrupt an in-flight conversation
 				if (!existsSync(WS_NOTIFY_FILE)) return;
 				const inboxContent = existsSync(WS_INBOX_FILE) ? readFileSync(WS_INBOX_FILE, "utf-8") : "";
 				const lines = inboxContent.trim().split("\n").filter(Boolean);

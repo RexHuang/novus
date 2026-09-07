@@ -257,18 +257,18 @@ function autoUnblock(plan: Plan): void {
 }
 
 /**
- * handleAutoExecute — 自主规划执行引擎
+ * handleAutoExecute — autonomous plan execution engine
  *
- * 不直接调用工具（工具是flat的），而是分析当前plan状态，
- * 找到下一个待执行步骤，生成结构化的执行指令（剧本），
- * 告诉LLM应该做什么、用什么工具、传什么参数。
+ * Doesn't call tools directly (tools are flat); instead analyzes the current plan state,
+ * finds the next pending step, generates a structured execution script,
+ * and tells the LLM what to do, with which tool, and with what params.
  *
- * 核心能力：
- *   1. 识别下一个pending步骤
- *   2. 根据步骤描述推断需要的工具和参数
- *   3. 检查前置依赖是否完成
- *   4. 生成可执行的action plan
- *   5. 失败时建议回退策略
+ * Core capabilities:
+ *   1. identify the next pending step
+ *   2. infer required tools and params from the step description
+ *   3. check that prerequisites are done
+ *   4. generate an executable action plan
+ *   5. suggest a fallback strategy on failure
  */
 function handleAutoExecute() {
 	const plan = loadPlan();
@@ -336,7 +336,7 @@ function handleAutoExecute() {
 	};
 }
 
-/** 从步骤描述推断需要的行动 */
+/** Infer the needed actions from a step description */
 function inferActions(desc: string): { actions: string[]; fallback: string; advice: string } {
 	const lower = desc.toLowerCase();
 	const actions: string[] = [];

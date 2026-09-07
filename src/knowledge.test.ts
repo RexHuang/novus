@@ -80,7 +80,7 @@ describe("Knowledge store", () => {
 	it("should recall Chinese bigram queries", () => {
 		storeKnowledge({ content: "React 的虚拟 DOM 通过 diff 算法最小化真实 DOM 操作", tags: ["react"], category: "knowledge" });
 
-		// Bigram "虚拟" should match
+		// Bigram "虚拟" (virtual) should match
 		const results = queryKnowledge({ query: "虚拟DOM", coreOnly: false });
 		expect(results.length).toBeGreaterThanOrEqual(1);
 	});
