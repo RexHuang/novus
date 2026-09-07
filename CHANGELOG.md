@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 — First public release (2026-09-12)
+## 1.1.0 — First public release (2026-09-08)
 
 The essence of a self-evolving AI agent in ~15K lines of TypeScript.
 
