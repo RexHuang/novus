@@ -120,6 +120,14 @@ Novus 不是从一张架构图开始的。它从一颗种子——一个最小�
 
 见 [CONTRIBUTING.md](CONTRIBUTING.md)。新手友好 issue：工具创意、Termux/Android 兼容、文档翻译。
 
+## 微信讨论群
+
+扫码加微信，备注 **novus**，拉你进讨论群——交流用法、自进化实践、Termux 部署踩坑，或者只是围观一个 agent 怎么长大。
+
+<p align="center">
+  <img src="docs/assets/wechat-qrcode.png" width="220" alt="微信讨论群二维码">
+</p>
+
 ## 许可
 
 Apache 2.0——见 [LICENSE](LICENSE)。基于 [pi-agent-core](https://www.npmjs.com/package/@earendil-works/pi-agent-core)（MIT）构建。
