@@ -40,6 +40,7 @@ import { loadConfig, type NovusConfig } from "./config.ts";
 import { createSession, loadSession, saveMessages, listSessions, deleteSession as deleteSessionFn, sessionExists } from "./session.ts";
 import { handleUpload, handleListFiles, handleGetFile, handleDeleteFile } from "./upload.ts";
 import { exec } from "node:child_process";
+import { runWithTenant } from "./memory/tenant-context.ts";
 import { isTransientConnectionError } from "./agent.ts";
 
 /**
@@ -466,12 +467,20 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 		if (!tenant) {
 			// If no auth configured, allow as "default" tenant
 			if (!authConfig && !legacyToken) {
-				return handleRoute(req, res, url, { id: "default", name: "Guest", token: "" }, false);
+				// Single-user guest mode: no tenant boundary (self data root)
+				return runWithTenant({ tenantId: "default", multiTenant: false }, () =>
+					handleRoute(req, res, url, { id: "default", name: "Guest", token: "" }, false));
 			}
 			return sendJson(res, 401, { error: "Unauthorized — provide Bearer token" });
 		}
 
-		return handleRoute(req, res, url, tenant, isAdmin);
+		// Multi-tenant scoping: --auth-file mode wraps every authenticated request
+		// in the tenant scope that storage layers (knowledge/experience/graph)
+		// use for row-level ownership tagging and read filtering (Issue #1).
+		return runWithTenant(
+			{ tenantId: tenant.id, multiTenant: !!authConfig },
+			() => handleRoute(req, res, url, tenant, isAdmin),
+		);
 	}
 
 	// /api/login — public endpoint

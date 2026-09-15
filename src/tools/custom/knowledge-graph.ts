@@ -1,20 +1,21 @@
 /**
- * knowledge-graph — extract entities and relations from the knowledge store, build an association network.
+ * knowledge-graph — 知识图谱：从知识库中提取实体和关系，构建关联网络。
  *
- * storage: ~/.novus/knowledge-graph/graph.json
+ * 存储位置: ~/.novus/knowledge-graph/graph.json
  *
- * actions:
- *   - build: extract entities/relations from existing knowledge entries, build the graph
- *   - query: look up an entity and its connection chain
- *   - link: manually add an entity relation
- *   - show: graph stats and core nodes
- *   - clear: wipe the graph
+ * 功能：
+ *   - build: 从现有 knowledge entries 提取实体和关系，构建图谱
+ *   - query: 查询实体及其关联实体链
+ *   - link: 手动添加实体关联
+ *   - show: 显示图谱统计和核心节点
+ *   - clear: 清空图谱
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { tenantScope } from "../../memory/tenant-context.ts";
 
 const GRAPH_DIR = join(homedir(), ".novus", "knowledge-graph");
 const GRAPH_FILE = join(GRAPH_DIR, "graph.json");
@@ -36,6 +37,8 @@ interface Entity {
 	type: "concept" | "tool" | "person" | "project" | "technology" | "business" | "custom";
 	weight: number; // number of connections
 	occurrences: number; // times mentioned in knowledge
+	/** 归属租户（仅 --auth-file 多租户模式）；缺省 = 本体 */
+	tenant?: string;
 }
 
 interface Relation {
@@ -43,6 +46,8 @@ interface Relation {
 	to: string;
 	label: string; // e.g. "uses", "related-to", "depends-on", "part-of"
 	weight: number;
+	/** 归属租户（仅 --auth-file 多租户模式）；缺省 = 本体 */
+	tenant?: string;
 }
 
 interface KnowledgeGraph {
@@ -125,6 +130,7 @@ interface RawKnowledgeEntry {
 	tags: string[];
 	category: string;
 	confidence: number;
+	tenant?: string;
 }
 
 function loadKnowledgeEntries(): RawKnowledgeEntry[] {
@@ -142,10 +148,20 @@ function loadKnowledgeEntries(): RawKnowledgeEntry[] {
 			}
 		} catch { /* skip */ }
 	}
-	return entries;
+	// 租户隔离：build 只基于当前视角可见的知识（本体=无主条目，租户=自己的）
+	const tid = tenantScope();
+	return entries.filter(e => (tid ? e.tenant === tid : !e.tenant));
 }
 
 // ── Graph operations ─────────────────────────────────────────────
+
+/** 按当前视角过滤子图（本体=无主实体，租户=自己的实体+两端可见的关系） */
+function filterGraphByScope(graph: KnowledgeGraph): KnowledgeGraph {
+	const tid = tenantScope();
+	const entities = new Map([...graph.entities].filter(([, e]) => (tid ? e.tenant === tid : !e.tenant)));
+	const ids = new Set(entities.keys());
+	return { ...graph, entities, relations: graph.relations.filter(r => ids.has(r.from) && ids.has(r.to)) };
+}
 
 function entityKey(label: string): string {
 	return label.toLowerCase().replace(/\s+/g, "-");
@@ -206,6 +222,7 @@ function buildGraphFromKnowledge(): KnowledgeGraph {
 					type: e.type,
 					weight: 0,
 					occurrences: 1,
+					tenant: tenantScope() ?? undefined,
 				});
 			}
 		}
@@ -233,6 +250,7 @@ function buildGraphFromKnowledge(): KnowledgeGraph {
 					to,
 					label: "co-occurs",
 					weight: count,
+					tenant: tenantScope() ?? undefined,
 				});
 			}
 		}
@@ -336,6 +354,9 @@ export function createTool(_cwd: string): AgentTool<any> {
 
 			switch (p.action) {
 				case "build": {
+					if (tenantScope()) {
+						return { content: [text("Forbidden: graph rebuild is an admin/self operation. Tenants query the filtered shared graph.")], details: {} };
+					}
 					const graph = buildGraphFromKnowledge();
 					saveGraph(graph);
 					return {
@@ -353,7 +374,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 						return { content: [text("No graph exists. Run 'build' first.")], details: {} };
 					}
 					const key = entityKey(p.entity);
-					const chain = queryEntityChain(graph, key, p.depth || 2);
+					const chain = queryEntityChain(filterGraphByScope(graph), key, p.depth || 2);
 					if (chain.length === 0) {
 						return { content: [text(`Entity "${p.entity}" not found in graph.`)], details: {} };
 					}
@@ -364,6 +385,9 @@ export function createTool(_cwd: string): AgentTool<any> {
 				}
 
 				case "link": {
+					if (tenantScope()) {
+						return { content: [text("Forbidden: graph link is an admin/self operation.")], details: {} };
+					}
 					if (!p.from || !p.to || !p.label) {
 						return { content: [text("Error: 'from', 'to', and 'label' are required for link.")], details: {} };
 					}
@@ -407,7 +431,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 					}
 					// Find entities with high occurrence but low connectivity (possible missed links)
 					const suggestions: string[] = [];
-					for (const [key, entity] of graph.entities) {
+					for (const [key, entity] of filterGraphByScope(graph).entities) {
 						if (entity.occurrences >= 3 && entity.weight <= 1) {
 							suggestions.push(`${entity.label} (occ:${entity.occurrences}, weight:${entity.weight})`);
 						}
@@ -426,10 +450,13 @@ export function createTool(_cwd: string): AgentTool<any> {
 					if (!graph) {
 						return { content: [text("No graph exists. Run 'build' first.")], details: {} };
 					}
-					return { content: [text(formatGraph(graph))], details: {} };
+					return { content: [text(formatGraph(filterGraphByScope(graph)))], details: {} };
 				}
 
 				case "clear": {
+					if (tenantScope()) {
+						return { content: [text("Forbidden: graph clear is an admin/self operation.")], details: {} };
+					}
 					ensureDir();
 					if (existsSync(GRAPH_FILE)) unlinkSync(GRAPH_FILE);
 					return { content: [text("Knowledge graph cleared.")], details: {} };

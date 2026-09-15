@@ -1,58 +1,59 @@
 /**
- * session-context — session context persistence; survives abnormal exits.
+ * session-context — 会话上下文持久化，解决异常退出时记忆丢失。
  *
- * Core principle: save as you go, don't rely on saving at exit.
+ * 核心原则：边做边存，不依赖退出时保存。
  *
- * Design:
- *   1. standalone file ~/.novus/session-context.json (latest context)
- *   2. update overwrites directly; atomicity via writeFileSync
- *   3. call update after each meaningful work step — writes what/where/next
- *   4. identity reads it automatically at injection — visible at the start of next turn
- *   5. session-worklog's log action auto-calls syncFromWorklog
+ * 设计：
+ *   1. 独立文件 ~/.novus/session-context.json（最新上下文）
+ *   2. update 时直接覆盖写入，原子性由 writeFileSync 保证
+ *   3. 每次有意义的工作推进后调用 update，把"做什么+做到哪+下一步"写入
+ *   4. identity 注入时自动读取，下轮一开头就能看到
+ *   5. session-worklog 的 log 动作会自动调用 syncFromWorklog
  *
- * Difference from session-worklog:
- *   - worklog: detailed operation log + file backup + checkpoints
- *   - context: the last word on "what I'm doing, what's next"
- *   - context is a lean projection of worklog, always populated
+ * 与 session-worklog 的区别：
+ *   - worklog: 详细的操作日志 + 文件备份 + checkpoint
+ *   - context: 最后一句话的"我在做什么，下一步做什么"
+ *   - context 是 worklog 的精简投影，永远有值
  */
 
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { scopedDir } from "../../memory/tenant-context.ts";
 import { join } from "node:path";
 
-const NOVUS_DIR = join(homedir(), ".novus");
-const CONTEXT_FILE = join(NOVUS_DIR, "session-context.json");
+const NOVUS_DIR = () => scopedDir(join(homedir(), ".novus"));
+const CONTEXT_FILE = () => scopedDir(join(homedir(), ".novus", "session-context.json"));
 
 // ── Data types ─────────────────────────────────────────────────────
 
 export interface SessionContext {
-	/** the last word: what I'm doing */
+	/** 最后一句话：我在做什么 */
 	activity: string;
-	/** extra context (optional) */
+	/** 补充上下文（可选） */
 	detail?: string;
-	/** which step/phase we're at */
+	/** 做到了哪一步 / 阶段 */
 	step?: string;
-	/** files involved */
+	/** 涉及的文件 */
 	files?: string[];
-	/** next step plan */
+	/** 下一步计划 */
 	nextStep?: string;
-	/** current status */
+	/** 当前状态 */
 	status?: "working" | "blocked" | "done" | "idle";
-	/** timestamp */
+	/** 时间戳 */
 	timestamp: string;
 }
 
 // ── Core operations ────────────────────────────────────────────────
 
 function ensureDir(): void {
-	if (!existsSync(NOVUS_DIR)) mkdirSync(NOVUS_DIR, { recursive: true });
+	if (!existsSync(NOVUS_DIR())) mkdirSync(NOVUS_DIR(), { recursive: true });
 }
 
 export function loadContext(): SessionContext | null {
-	if (!existsSync(CONTEXT_FILE)) return null;
+	if (!existsSync(CONTEXT_FILE())) return null;
 	try {
-		return JSON.parse(readFileSync(CONTEXT_FILE, "utf-8")) as SessionContext;
+		return JSON.parse(readFileSync(CONTEXT_FILE(), "utf-8")) as SessionContext;
 	} catch {
 		return null;
 	}
@@ -60,18 +61,18 @@ export function loadContext(): SessionContext | null {
 
 export function saveContext(ctx: SessionContext): void {
 	ensureDir();
-	writeFileSync(CONTEXT_FILE, JSON.stringify(ctx, null, 2), "utf-8");
+	writeFileSync(CONTEXT_FILE(), JSON.stringify(ctx, null, 2), "utf-8");
 }
 
 export function clearContext(): void {
-	if (existsSync(CONTEXT_FILE)) {
-		writeFileSync(CONTEXT_FILE, "{}", "utf-8");
+	if (existsSync(CONTEXT_FILE())) {
+		writeFileSync(CONTEXT_FILE(), "{}", "utf-8");
 	}
 }
 
 /**
- * Sync from a worklog entry into context.
- * Called automatically by session-worklog's log action.
+ * 从 worklog entry 同步到 context。
+ * session-worklog 的 log 动作会自动调用这个。
  */
 export function syncFromWorklog(worklog: {
 	activity: string;
@@ -95,14 +96,14 @@ export function syncFromWorklog(worklog: {
 }
 
 /**
- * For identity injection: returns a one-line context summary.
- * Returns null if context is empty or stale (>24h).
+ * 用于 identity 注入：返回一行上下文摘要。
+ * 如果 context 为空或太旧（>24h），返回 null。
  */
 export function getContextSummary(): string | null {
 	const ctx = loadContext();
 	if (!ctx || !ctx.activity) return null;
 
-	// context older than 24h may be stale
+	// 超过24小时的上下文可能已经过时
 	const ageMs = Date.now() - new Date(ctx.timestamp).getTime();
 	if (ageMs > 24 * 60 * 60 * 1000) return null;
 
@@ -123,15 +124,15 @@ export function getContextSummary(): string | null {
 }
 
 /**
- * Extended context: append active project progress if any.
- * Called during identity injection.
+ * 扩展上下文：如果有活跃项目，追加项目进度摘要。
+ * 在 identity 注入时调用。
  */
 export function getExtendedContextSummary(): string {
 	const sessionSummary = getContextSummary();
 	let result = "";
 	if (sessionSummary) result += `LastWork: ${sessionSummary}\n`;
 
-	// inject active project context
+	// 注入活跃项目的上下文
 	try {
 		const { getActiveProject, projectContextSummary } = require("../../project-memory.js");
 		const active = getActiveProject();
@@ -139,7 +140,7 @@ export function getExtendedContextSummary(): string {
 			result += projectContextSummary(active.slug);
 		}
 	} catch {
-		// silently skip if project-memory is unavailable
+		// project-memory 不可用时静默跳过
 	}
 	return result;
 }
@@ -164,7 +165,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 	return {
 		name: "session-context",
 		description:
-			"Session context persistence. update writes current work progress (what, where, next) and restores it in the next session — even after an abnormal exit. Call once per work session.",
+			"会话上下文持久化。update 写入当前工作进度（做什么、做到哪、下一步），下次会话自动恢复。异常退出也能记住。每次推进工作时调用一次。",
 		label: "session-context",
 
 		parameters: {
@@ -173,33 +174,33 @@ export function createTool(_cwd: string): AgentTool<any> {
 				action: {
 					type: "string",
 					enum: ["update", "show", "clear"],
-					description: "Action type",
+					description: "操作类型",
 				},
 				activity: {
 					type: "string",
-					description: "What I'm doing (one sentence, required for update)",
+					description: "我在做什么（一句话，必填 for update）",
 				},
 				detail: {
 					type: "string",
-					description: "Extra context (optional)",
+					description: "补充上下文（可选）",
 				},
 				step: {
 					type: "string",
-					description: "Current step/phase (optional)",
+					description: "当前步骤/阶段（可选）",
 				},
 				files: {
 					type: "array",
 					items: { type: "string" },
-					description: "Files involved (optional)",
+					description: "涉及的文件（可选）",
 				},
 				nextStep: {
 					type: "string",
-					description: "Next step plan (optional)",
+					description: "下一步计划（可选）",
 				},
 				status: {
 					type: "string",
 					enum: ["working", "blocked", "done"],
-					description: "Status (optional)",
+					description: "状态（可选）",
 				},
 			},
 			required: ["action"],
@@ -211,7 +212,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 			switch (p.action) {
 				case "update": {
 					if (!p.activity) {
-						return { content: [text("❌ activity is required — what are you working on?")], details: {} };
+						return { content: [text("❌ activity 是必填项——你在做什么？")], details: {} };
 					}
 
 					const ctx: SessionContext = {
@@ -225,7 +226,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 					};
 					saveContext(ctx);
 
-					const parts: string[] = [`💾 Saved: ${p.activity}`];
+					const parts: string[] = [`💾 已保存: ${p.activity}`];
 					if (p.step) parts.push(`📍 Step: ${p.step}`);
 					if (p.nextStep) parts.push(`➡️ Next: ${p.nextStep}`);
 					if (p.files?.length) parts.push(`📁 Files: ${p.files.join(", ")}`);
@@ -235,14 +236,14 @@ export function createTool(_cwd: string): AgentTool<any> {
 				case "show": {
 					const ctx = loadContext();
 					if (!ctx || !ctx.activity) {
-						return { content: [text("📭 No context on record.")], details: {} };
+						return { content: [text("📭 无上下文记录。")], details: {} };
 					}
 
 					// Staleness detection: warn if unfinished and >2 hours old
 					const ageMs = Date.now() - new Date(ctx.timestamp).getTime();
 					const isStale = ctx.status !== "done" && ageMs > 2 * 60 * 60 * 1000;
 					const staleWarning = isStale
-						? `⚠️ Entry is ${Math.round(ageMs / 3600000)}h old, may be stale. update if wrong.\n`
+						? `⚠️ 记录已过 ${Math.round(ageMs / 3600000)}h，可能过时。如不对请 update。\n`
 						: "";
 
 					const parts: string[] = [];
@@ -259,11 +260,11 @@ export function createTool(_cwd: string): AgentTool<any> {
 
 				case "clear": {
 					clearContext();
-					return { content: [text("🗑️ Context cleared.")], details: {} };
+					return { content: [text("🗑️ 上下文已清除。")], details: {} };
 				}
 
 				default:
-					return { content: [text(`Unknown action: ${p.action}`)], details: {} };
+					return { content: [text(`未知操作: ${p.action}`)], details: {} };
 			}
 		},
 	};
