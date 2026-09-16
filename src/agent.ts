@@ -5,9 +5,10 @@ import { streamSimple } from "@earendil-works/pi-ai/api/anthropic-messages";
 import type { StreamFn } from "@earendil-works/pi-agent-core";
 import { createAllTools } from "./tools.ts";
 import { identityPromptAppendix } from "./identity.ts";
-import { buf, bufClear, watchdogSignal, clearWatchdogSignal } from "./utils/session-buffer.ts";
+import { buf, bufClear } from "./utils/session-buffer.ts";
 import { buildProjectSummary } from "./senses/project.ts";
 import { getContextualMemory } from "./memory/knowledge.ts";
+import { bootstrapFederation, startFederationHeartbeat } from "./federation-bootstrap.js";
 
 // ── Context compression ────────────────────────────────────────────
 
@@ -110,9 +111,9 @@ export function isTransientConnectionError(errorMessage: string): boolean {
 	if (/connection\s*(error|reset|refused|failed|closed)/.test(msg)) return true;
 	if (/(econnrefused|econnreset|enotfound|etimedout|socket hang up)/.test(msg)) return true;
 	if (/(timeout|timed? ?out|abort|terminated)/.test(msg)) return true;
-	if (/(5\d{2}|overloaded|rate.?limit|429)/.test(msg)) return true; // full 5xx coverage (previously matched only 502/503/504, missed 500)
+	if (/(5\d{2}|overloaded|rate.?limit|429)/.test(msg)) return true; // 5xx 全覆盖（原只匹配 502/503/504，漏了 500）
 	if (/network\s*(error|failed|unreachable)/.test(msg)) return true;
-	if (/(网络错误|稍后重试|api_error)/.test(msg)) return true; // Chinese error messages common on domestic relays (e.g. GLM code 1234)
+	if (/(网络错误|稍后重试|api_error)/.test(msg)) return true; // 国内中转常见中文报错（如 GLM code 1234）
 	return false;
 }
 
@@ -206,8 +207,8 @@ function getIdentity(): string {
 
 function resolveApiKey(apiKey?: string): string | undefined {
 	if (apiKey) return apiKey;
-	// Dual-track env vars: NOVUS_* (native) > ANTHROPIC_* (Claude Code compatible)
-	return process.env.NOVUS_AUTH_TOKEN ?? process.env.ANTHROPIC_AUTH_TOKEN ?? process.env.ANTHROPIC_API_KEY;
+	// Support ANTHROPIC_AUTH_TOKEN (DeepSeek-style) in addition to standard ANTHROPIC_API_KEY
+	return process.env.ANTHROPIC_AUTH_TOKEN ?? process.env.ANTHROPIC_API_KEY;
 }
 
 function buildModel(override?: string | Model<any>, baseUrlOverride?: string, maxTokensOverride?: number): Model<any> {
@@ -220,8 +221,8 @@ function buildModel(override?: string | Model<any>, baseUrlOverride?: string, ma
 		};
 	}
 
-	const modelId = override ?? process.env.NOVUS_MODEL ?? process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
-	const baseUrl = baseUrlOverride ?? process.env.NOVUS_BASE_URL ?? process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com";
+	const modelId = override ?? process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-20250514";
+	const baseUrl = baseUrlOverride ?? process.env.ANTHROPIC_BASE_URL ?? "https://api.anthropic.com";
 
 	return {
 		id: modelId,
@@ -294,7 +295,9 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 	const writeOut = onWrite ?? ((text: string) => { process.stdout.write(text); });
 	const tools: AgentTool<any>[] = await createAllTools(cwd);
 
-	// federation system self-registration
+	// 联邦系统自注册
+	let federationCap: any = null;
+	try { federationCap = bootstrapFederation(); startFederationHeartbeat(); } catch {}
 
 	const key = resolveApiKey(apiKey);
 	const resolvedModel = buildModel(model, baseUrl, maxTokens);
@@ -333,16 +336,16 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 	let runtimeLastToolName = "";
 	let runtimeLastErrorMsg = "";
 	// ── Tool call budget per prompt turn ──
-	// interactive default 20 (guards over-tool-calling); autonomous/evolution tasks pass a higher limit for long flows
+	// 交互式默认 20（防 over-tool-calling）；自主/进化任务传入更高上限以支持长流程
 	const MAX_TOOL_CALLS_PER_TURN = maxToolCallsPerTurn ?? 20;
 	let runtimeTurnCallCount = 0;
 
-	// ── Real-time behavior guard (Step 5: real-time behavior corrector) ──
-	// tracks session-level tool-call patterns, detects over-tool-calling etc. in real time
+	// ── Real-time behavior guard (Step 5: 实时行为校正器) ──
+	// 追踪session级别的工具调用模式，实时检测over-tool-calling等行为
 	const runtimeToolCallLog: Array<{ tool: string; isError: boolean }> = [];
 	let runtimeSessionCallCount = 0;
-	const SAME_TOOL_WARN_THRESHOLD = 7; // 7 consecutive same-tool calls trigger a warning
-	const SESSION_TOOL_BUDGET = 150; // total tool-call budget per session
+	const SAME_TOOL_WARN_THRESHOLD = 7; // 同一工具连续7次触发警告
+	const SESSION_TOOL_BUDGET = 150; // session总工具调用预算
 
 	function getRecentSameToolCount(toolName: string): number {
 		let count = 0;
@@ -354,7 +357,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 	}
 
 	function getToolCallsInCurrentBurst(): number {
-		// tool calls within the same turn (all entries in runtimeToolCallLog since prompt() reset)
+		// 同一turn内的工具调用数（即 runtimeToolCallLog 中 prompt() 重置后的全部条目）
 		return runtimeToolCallLog.length;
 	}
 
@@ -367,7 +370,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			if (ctx.toolCall.name === runtimeLastToolName && runtimeConsecutiveErrors >= 4) {
 				return {
 					block: true,
-					reason: `[self-check] ⚠️ ${ctx.toolCall.name} has failed ${runtimeConsecutiveErrors} times in a row. Retrying won't change the result. Try a different approach, or inspect the last call's error first.`,
+					reason: `[self-check] ⚠️ ${ctx.toolCall.name} 已连续失败 ${runtimeConsecutiveErrors} 次，继续重试不会改变结果。请换一个方法实现目标，或者先检查上一个调用的错误信息再尝试。`,
 				};
 			}
 
@@ -376,7 +379,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			if (runtimeTurnCallCount > MAX_TOOL_CALLS_PER_TURN) {
 				return {
 					block: true,
-					reason: `[self-check] ⚠️ ${runtimeTurnCallCount} tools called this turn (limit ${MAX_TOOL_CALLS_PER_TURN}). Stop calling new tools — answer the user with what you already have. Fetch more next turn if truly needed.`,
+					reason: `[self-check] ⚠️ 本轮已调用 ${runtimeTurnCallCount} 个工具（上限 ${MAX_TOOL_CALLS_PER_TURN}）。请停止调用新工具，先用已有结果回答用户。如果还需要更多信息，等下一轮再获取。`,
 				};
 			}
 
@@ -388,7 +391,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				if (sameToolCount >= SAME_TOOL_WARN_THRESHOLD) {
 					return {
 						block: true,
-						reason: `[behavior-guard] ${ctx.toolCall.name} called ${sameToolCount} times in a row — merge into one call or try a different method.`,
+						reason: `[behavior-guard] ${ctx.toolCall.name} 已连续调用 ${sameToolCount} 次，请合并为一次调用或换一种方法。`,
 					};
 				}
 
@@ -396,7 +399,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				if (runtimeSessionCallCount >= SESSION_TOOL_BUDGET) {
 					return {
 						block: true,
-						reason: `[behavior-guard] ${runtimeSessionCallCount} tool calls this session (budget ${SESSION_TOOL_BUDGET}) — summarize progress and tell the user the next step.`,
+						reason: `[behavior-guard] 本session已调用 ${runtimeSessionCallCount} 次工具（预算${SESSION_TOOL_BUDGET}），请总结当前进度并告诉用户下一步计划。`,
 					};
 				}
 			}
@@ -418,7 +421,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				runtimeLastToolName = "";
 				runtimeLastErrorMsg = "";
 			}
-			// record to the real-time behavior log
+			// 记录到实时行为日志
 			runtimeToolCallLog.push({
 				tool: ctx.toolCall.name,
 				isError: ctx.isError,
@@ -433,7 +436,6 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			const stderrCapture = interceptStderr();
 
 			bufClear();
-			clearWatchdogSignal();
 			buf("");
 			buf("═══════════════════════════════════════");
 			buf(">>> " + userInput.split("\n")[0]);
@@ -458,13 +460,13 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				const compressed = compressMessages(existingMessages, fullContext.systemPrompt ?? "", modelContextWindow);
 				fullContext.messages = compressed.messages;
 				if (compressed.compressed) {
-					buf("[INFO] context compaction: " + existingMessages.length + " → " + compressed.messages.length + " messages");
+					buf("[INFO] 上下文压缩：" + existingMessages.length + " → " + compressed.messages.length + " 条消息");
 				}
 			}
 
 			// ── Helper functions ──
 			const SPIN = ["⠋","⠙","⠹","⠸","⠼","⠴","⠦","⠧","⠇","⠏"];
-			const AI_BUF_MAX = 200; // forced-flush threshold: truncation point for overlong lineless text
+			const AI_BUF_MAX = 200; // 兜底 flush 阈值：超长无换行文本的截断点
 			// Tools whose output is too noisy for terminal display
 			const SILENT_TOOLS = new Set(['session-buffer', 'echo', 'auto-manage', 'healthy', 'fed-knowledge', 'smart-router', 'chain-orchestrator']);
 
@@ -517,8 +519,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 					if (args.command) {
 						let c = String(args.command).split("\n")[0].trim();
 						c = c.replace(/^cd (\S+) && /, "");
-						c = c.replace(/\s*2>&1.*$/, "");            // strip stderr redirection and any tail/echo decoration after it
-						c = c.replace(/\s*\|\s*tail\s+[^|]*$/, ""); // strip a trailing | tail -N
+						c = c.replace(/\s*2>&1.*$/, "");            // 去 stderr 重定向及之后的 tail/echo 装饰
+						c = c.replace(/\s*\|\s*tail\s+[^|]*$/, ""); // 去结尾的 | tail -N
 						return c.length > 45 ? c.slice(0, 42) + "..." : c;
 					}
 					if (args.path) {
@@ -572,7 +574,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 
 			const showStatus = (text: string) => {
 				stderrCapture.suppress(() => {
-					// \r = carriage return, \x1b[K = clear to EOL, then draw the spinner
+					// \r = 回车到行首, \x1b[K = 清到行尾, 然后写 spinner
 					process.stderr.write("\r\x1b[K\x1b[90m" + text + "\x1b[0m");
 				});
 				statusLine = text;
@@ -580,7 +582,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			const hideStatus = () => {
 				if (statusLine.length > 0) {
 					stderrCapture.suppress(() => {
-						// newline after clearing the line so the next output starts fresh
+						// 清行后换行，确保下一个输出从新行开始
 						process.stderr.write("\r\x1b[K\n");
 					});
 					statusLine = "";
@@ -610,7 +612,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			};
 			const pushAiDelta = (delta: string) => {
 				aiTextBuffer += delta;
-				// flush at natural line boundaries: record complete lines on newline, don't hard-split by char count
+				// 按自然段落边界 flush：遇到换行符就把该行完整记录，避免按字符数硬切成碎片
 				const nlIdx = aiTextBuffer.lastIndexOf("\n");
 				if (nlIdx >= 0) {
 					const complete = aiTextBuffer.slice(0, nlIdx + 1).replace(/\n$/, "");
@@ -624,8 +626,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 			};
 
 			let messageStarted = false;
-			// dynamic thinking indicator: animate before the first output (text/tool) so the terminal doesn't feel stuck
-			spinStart("🤔 Thinking…");
+			// 思考阶段动态指示：在首个输出（文本/工具）前显示动画，避免终端“卡住”感
+			spinStart("🤔 思考中…");
 			let contextOverflowRetry = false;
 			let newMessages = await runAgentLoop([userMessage], fullContext, config, async (event) => {
 				if (event.type === "message_update" && event.assistantMessageEvent) {
@@ -636,7 +638,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 					}
 					const ame = event.assistantMessageEvent;
 					if (ame.type === "text_delta") {
-						hideStatus(); // first text output: clear the thinking/tool spinner
+						hideStatus(); // 首个文本输出：清除思考/工具 spinner
 						writeOut(ame.delta);
 						pushAiDelta(ame.delta);
 						hadOutput = true;
@@ -712,8 +714,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 						}
 						// ── Context overflow auto-compress & retry ──
 						if (errMsg.includes("context_window") || errMsg.includes("token limit") || errMsg.includes("too large")) {
-							buf("[WARN] Context overflow — auto-compacting history and retrying...");
-							process.stderr.write("\n\x1b[33m⚠️ Context overflow — compacting history and retrying...\x1b[0m\n");
+							buf("[WARN] 上下文溢出，自动压缩历史消息并重试...");
+							process.stderr.write("\n\x1b[33m⚠️ 上下文溢出，压缩历史消息并重试...\x1b[0m\n");
 							const cw = (fullContext as any)._modelContextWindow ?? 200000;
 							const compressed2 = compressMessages(existingMessages ?? [], fullContext.systemPrompt ?? "", cw);
 							fullContext.messages = compressed2.messages;
@@ -733,7 +735,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 						hideStatus();
 						wasTruncated = true;
 						process.stderr.write("\n⚠️  Response truncated (max_tokens limit). Auto-continuing...\n");
-						buf("[WARN] Response truncated — max_tokens too low, auto-continuing");
+						buf("[WARN] 响应被截断 — max_tokens 不足，自动续写");
 					}
 					emitEvent(onEvent, { type: "message_end", stopReason: msg.stopReason });
 				}
@@ -744,8 +746,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 
 			// ── Context overflow retry ──
 			if (contextOverflowRetry && !wasAborted) {
-				buf("[INFO] Context compaction done, retrying API call...");
-				process.stderr.write("\x1b[33m🔄 Retrying...\x1b[0m\n");
+				buf("[INFO] 上下文压缩完成，重试 API 调用...");
+				process.stderr.write("\x1b[33m🔄 重试中...\x1b[0m\n");
 				contextOverflowRetry = false;
 				hadOutput = false;
 				messageStarted = false;
@@ -797,7 +799,7 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				if (hadOutput) writeOut("\n");
 				// Merge: replace newMessages with the retried version
 				newMessages.splice(0, newMessages.length, ...retriedMessages);
-				buf("[INFO] Retry complete, context compacted");
+				buf("[INFO] 重试完成，上下文已压缩");
 			}
 
 			// Auto-continue if response was truncated (max_tokens limit)
@@ -851,15 +853,13 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				} catch {
 					// If continue fails, keep the original truncated messages
 					hideStatus();
-					buf("[WARN] Auto-continue failed — response may be incomplete");
+					buf("[WARN] 自动续写失败，响应可能不完整");
 				}
 			}
 
-			// Log connection error for watchdog to pick up (via buffer + dedicated signal file)
-			// the signal file bypasses the NOVUS_DAEMON gate — buf() is swallowed in daemon mode, this is the safety net
+			// Log connection error for watchdog to pick up (via buffer)
 			if (connectionErrorDetected) {
 				buf("[CONNECTION_ERROR] " + connectionErrorDetected);
-				watchdogSignal(connectionErrorDetected);
 			}
 
 			stderrCapture.restore();
@@ -879,8 +879,8 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 				.map(l => l.replace(/\x1b\[[0-9;]*[a-zA-Z~]/g, "").replace(/\r/g, "").replace(/\s+/g, " ").trim())
 				.filter(Boolean).join("\n");
 			if (stderrOutput) {
-				// a lone "Error: terminated" = the child process was killed during teardown; the command actually succeeded.
-				// harmless noise: don't inject into context, don't print to the UI (avoids misleading the user into thinking it failed).
+				// "Error: terminated" 单独出现 = 子进程收尾时被 kill，命令实际已成功。
+				// 属无害噪音：既不注入上下文，也不打印到界面（避免误导用户以为出错）。
 				const isOnlyTerminated = /^Error: terminated\.?\s*$/i.test(stderrOutput.trim());
 				if (isOnlyTerminated) {
 					return newMessages;
