@@ -1,48 +1,48 @@
 /**
- * Daemon Scheduler — background scheduled-task runner
+ * Daemon Scheduler — 后台定时任务调度器
  *
- * Runs as a separate process (novus --daemon), checks due tasks on an interval via setInterval,
- * and executes each task's instruction via a headless agent.
+ * 作为独立进程运行（novus --daemon），用 setInterval 定期检查到期任务，
+ * 并通过 headless agent 执行任务的 instruction。
  *
- * Features:
- *   - no cron needed, pure Node.js
- *   - PID file prevents double-start
- *   - updates scheduling after running due tasks
- *   - graceful shutdown
- *   - Termux-friendly: low CPU usage
+ * 特点：
+ *   - 不依赖 cron，纯 Node.js
+ *   - PID 文件防重复启动
+ *   - 执行完到期任务后更新调度时间
+ *   - 支持优雅退出
+ *   - Termux 友好：低 CPU 占用
  */
 
 import { existsSync, readFileSync, writeFileSync, unlinkSync, readdirSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-// disable buf() writes in daemon mode to avoid a read-buffer feedback loop
+// daemon 模式下禁用 buf() 写入，避免 read-buffer 死循环
 process.env.NOVUS_DAEMON = '1';
 
 const NOVUS_DIR = join(homedir(), ".novus");
 const PID_FILE = join(NOVUS_DIR, "daemon.pid");
 
-// check interval: 60s (light enough)
+// 检查间隔：60 秒（足够轻量）
 const CHECK_INTERVAL_MS = 60_000;
 
-// ws-comm event-driven listener: poll the notify file every 1s (readdirSync is dirt cheap)
+// ws-comm 事件驱动监听：1 秒检测一次 notify 文件（readdirSync 开销极低）
 const WS_NOTIFY_INTERVAL_MS = 1_000;
 const WS_NOTIFY_PREFIX = "novus-ws-notify-";
 
 /**
- * Get the current daemon PID, if running.
+ * 获取当前 daemon 的 PID，如果正在运行的话。
  */
 export function getDaemonPid(): number | null {
 	if (!existsSync(PID_FILE)) return null;
 	try {
 		const pid = parseInt(readFileSync(PID_FILE, "utf-8").trim(), 10);
 		if (isNaN(pid)) return null;
-		// check the process actually exists
+		// 检查进程是否真的存在
 		try {
-			process.kill(pid, 0); // signal 0 = no kill, existence check only
+			process.kill(pid, 0); // 信号 0 = 不杀，只检查
 			return pid;
 		} catch {
-			// process gone — clean up the stale PID file
+			// 进程不存在，清理残留 PID 文件
 			unlinkSync(PID_FILE);
 			return null;
 		}
@@ -52,21 +52,21 @@ export function getDaemonPid(): number | null {
 }
 
 /**
- * Write the PID file, preventing double-start.
+ * 写入 PID 文件，防止重复启动。
  */
 function writePidFile(): void {
 	writeFileSync(PID_FILE, process.pid.toString(), "utf-8");
 }
 
 /**
- * Remove the PID file.
+ * 清理 PID 文件。
  */
 function removePidFile(): void {
 	try { unlinkSync(PID_FILE); } catch { /* ignore */ }
 }
 
 /**
- * Graceful shutdown handling.
+ * 优雅退出处理。
  */
 function setupGracefulShutdown(): void {
 	const cleanup = () => {
@@ -79,13 +79,13 @@ function setupGracefulShutdown(): void {
 }
 
 /**
- * Start the daemon scheduling loop.
+ * 启动 daemon 调度循环。
  *
- * @param cwd - working directory (used by the agent when running tasks)
- * @returns a stop function that halts the scheduling loop
+ * @param cwd - 工作目录（agent 执行任务时使用）
+ * @returns 一个 stop 函数，调用后停止调度循环
  */
 export async function startDaemonScheduler(cwd: string): Promise<() => void> {
-	// guard against double-start
+	// 防重复
 	if (getDaemonPid() !== null) {
 		console.error("⚠️  Daemon scheduler is already running (PID: " + getDaemonPid() + ")");
 		return () => {};
@@ -94,13 +94,13 @@ export async function startDaemonScheduler(cwd: string): Promise<() => void> {
 	writePidFile();
 	setupGracefulShutdown();
 
-	// lazy-import agent to avoid circular dependency
+	// 延迟导入 agent，避免循环依赖
 	const { getDueTasks, markTaskExecuted } = await import("./scheduler.ts");
 	const { createMinAgent } = await import("../agent.ts");
 
 	console.log("🕐 Daemon scheduler started (PID: " + process.pid + ", check interval: " + (CHECK_INTERVAL_MS / 1000) + "s)");
 
-	// track in-flight tasks, avoid running the same one concurrently
+	// 跟踪正在执行的任务，避免并发执行同一个
 	const runningTaskIds = new Set<string>();
 
 	const tick = async () => {
@@ -112,18 +112,18 @@ export async function startDaemonScheduler(cwd: string): Promise<() => void> {
 			runningTaskIds.add(task.id);
 
 			const startTime = Date.now();
-			console.log("▶ Executing task: " + task.name + " [" + task.id.slice(0, 6) + "]");
+			console.log("▶ 执行任务: " + task.name + " [" + task.id.slice(0, 6) + "]");
 
 			try {
-				// spawn a headless agent to run the task
+				// 创建 headless agent 执行任务
 				const agent = await createMinAgent({ cwd, maxToolCallsPerTurn: 200 });
-				const prompt = `Execute the following autonomous task. When done, record the result (including a summary) with auto-manage action=complete.\n\n## Task\nName: ${task.name}\nInstruction:\n${task.instruction}\n\nNote: this runs in the background, no output for the user. Execute quietly and finish.`;
+				const prompt = `执行以下自主任务。完成后用 auto-manage action=complete 记录结果（包含 summary）。\n\n## 任务\n名称: ${task.name}\n指令:\n${task.instruction}\n\n注意：这是后台自动执行，不需要输出给用户看。安静地执行，完成即可。`;
 				await agent.prompt(prompt);
-				// markTaskExecuted is called by the agent on auto-manage complete,
-				// but if it never calls complete, we mark success as a fallback
-				console.log("✅ Task completed: " + task.name + " (" + ((Date.now() - startTime) / 1000).toFixed(1) + "s)");
+				// markTaskExecuted 由 agent 在执行 auto-manage complete 时调用
+				// 但如果 agent 没调 complete，我们兜底标记成功
+				console.log("✅ 任务完成: " + task.name + " (" + ((Date.now() - startTime) / 1000).toFixed(1) + "s)");
 			} catch (err) {
-				console.error("❌ Task failed: " + task.name + " — " + (err instanceof Error ? err.message : err));
+				console.error("❌ 任务失败: " + task.name + " — " + (err instanceof Error ? err.message : err));
 				markTaskExecuted(task.id, false, "daemon execution error: " + (err instanceof Error ? err.message : String(err)));
 			} finally {
 				runningTaskIds.delete(task.id);
@@ -131,7 +131,7 @@ export async function startDaemonScheduler(cwd: string): Promise<() => void> {
 		}
 	};
 
-	// ── ws-comm event-driven listener: watch the notify file, react to new messages in seconds ──
+	// ── ws-comm 事件驱动监听：检测 notify 文件，秒级响应新消息 ──
 	let wsProcessing = false;
 	const checkWsNotify = async () => {
 		if (wsProcessing) return;
@@ -171,38 +171,38 @@ export async function startDaemonScheduler(cwd: string): Promise<() => void> {
 						.map((m: any) => `[${m.from || "?"}] ${m.type || "msg"}: ${String(m.content || m.raw || "").slice(0, 500)}`)
 						.join("\n");
 					const replyTo = msgs[0]?.from || agentId;
-const prompt = `[REPLY REQUIRED] You received a ws-comm message from node ${replyTo}.
+const prompt = `【必须回复】你收到了来自节点 ${replyTo} 的 ws-comm 消息。
 
-Message content:
+消息内容：
 ${msgsText}
 
-How to reply (required): call the ws-comm tool with action=send, myId=${agentId}, to=${replyTo}, type=result, content=your reply
+回复方法（必做）：调用 ws-comm 工具，参数：action=send, myId=${agentId}, to=${replyTo}, type=result, content=你的回复内容
 
-Rules:
-1. question and request types → must reply via ws-comm action=send to ${replyTo}
-2. result and alert types → no reply needed, ignore
-3. Never just print text without calling the tool`
+规则：
+1. question 和 request 类型 → 必须用 ws-comm action=send 回复到 ${replyTo}
+2. result 和 alert 类型 → 不用回复，忽略即可
+3. 绝对不要只输出文字不调用工具`
 					await agent.prompt(prompt);
-					console.log("✅ ws-comm message processed: " + agentId + " (" + msgs.length + " message(s))");
+					console.log("✅ ws-comm 消息已处理: " + agentId + " (" + msgs.length + " 条)");
 				} finally {
 					wsProcessing = false;
 				}
 			}
 		} catch {
-			// silent — ws-notify failures must not block the main scheduling loop
+			// silent —— ws-notify 检测失败不阻断主调度循环
 		}
 	};
 
-	// run once immediately
+	// 立即执行一次
 	tick().catch(err => console.error("Daemon tick error:", err));
 	void checkWsNotify();
 
-	// periodic checks
+	// 定期检查
 	const timer = setInterval(() => tick().catch(err => console.error("Daemon tick error:", err)), CHECK_INTERVAL_MS);
-	// keep the timer from keeping the process alive
+	// 允许进程不被 timer 阻止退出
 	if (timer.unref) timer.unref();
 
-	// ws-comm second-level listener
+	// ws-comm 秒级监听
 	const wsTimer = setInterval(() => { void checkWsNotify(); }, WS_NOTIFY_INTERVAL_MS);
 	if (wsTimer.unref) wsTimer.unref();
 
@@ -214,7 +214,7 @@ Rules:
 }
 
 /**
- * Check whether the daemon is running, return status info.
+ * 检查 daemon 是否正在运行，返回状态信息。
  */
 export function daemonStatus(): { running: boolean; pid: number | null } {
 	const pid = getDaemonPid();
