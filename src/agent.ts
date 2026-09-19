@@ -8,7 +8,6 @@ import { identityPromptAppendix } from "./identity.ts";
 import { buf, bufClear } from "./utils/session-buffer.ts";
 import { buildProjectSummary } from "./senses/project.ts";
 import { getContextualMemory } from "./memory/knowledge.ts";
-import { bootstrapFederation, startFederationHeartbeat } from "./federation-bootstrap.js";
 
 // ── Context compression ────────────────────────────────────────────
 
@@ -294,10 +293,6 @@ export async function createMinAgent(options: MinAgentOptions): Promise<MinAgent
 	const { cwd, model, baseUrl, systemPrompt, apiKey, maxTokens, onWrite, maxToolCallsPerTurn } = options;
 	const writeOut = onWrite ?? ((text: string) => { process.stdout.write(text); });
 	const tools: AgentTool<any>[] = await createAllTools(cwd);
-
-	// 联邦系统自注册
-	let federationCap: any = null;
-	try { federationCap = bootstrapFederation(); startFederationHeartbeat(); } catch {}
 
 	const key = resolveApiKey(apiKey);
 	const resolvedModel = buildModel(model, baseUrl, maxTokens);
