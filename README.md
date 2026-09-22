@@ -35,6 +35,8 @@ Not "self-improving" as a marketing word. The loop is concrete — and it ran, e
 
 Bug → self-diagnosis → self-patch → self-deploy → lesson stored. No human typed a line of that fix. The maintainer watched it happen, then updated this README.
 
+> **Fair warning:** the numbers above are already stale — the real count stands at 35 self-evolutions and 34 self-built tools, and counting. The agent keeps outpacing this README. That's the point.
+
 *(The federation layer itself ships in v1.2 — see [Roadmap](#roadmap).)*
 
 ## Quickstart (5 minutes)
