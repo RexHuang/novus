@@ -4,6 +4,12 @@
 
 A self-evolving AI agent framework that runs anywhere — including the Android phone in your pocket. I stopped carrying a laptop: the agent lives on my phone (Termux) and reaches out to my servers, an overseas VPS, even the Mac under my desk, over a single WebSocket.
 
+<p align="center">
+  <img src="docs/demo.gif" width="380" alt="Live demo: Novus introduces itself, patrols a 4-node server fleet, renders its evolution dashboard (35 evolutions, 34 self-built tools), and lists its autonomous tasks — all in one terminal session">
+</p>
+
+> Every answer in this recording was generated live in one session. Only the question order is scripted.
+
 ---
 
 ## What's the essence of an AI agent?
