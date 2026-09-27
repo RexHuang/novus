@@ -98,6 +98,10 @@ Novus has been my daily driver for **one month of intense use**: 140+ sessions, 
 
 *The multi-node federation layer is not open-sourced (yet) — see [Roadmap](#roadmap).*
 
+> ## Benchmark
+
+> Self-reported: **34/80 tasks (42.50%)** on [Terminal-Bench Core 0.1.1](https://github.com/harbor-framework/terminal-bench) — 80/80 attempted, 186 trials, agent = Novus + GLM-5.3-flash on local Docker. Full per-task table, methodology and disclosure: [docs/benchmark/terminal-bench-core-0.1.1.md](docs/benchmark/terminal-bench-core-0.1.1.md). Not on the official leaderboard — external submissions are not accepted there ([harbor-framework/terminal-bench#1507](https://github.com/harbor-framework/terminal-bench/issues/1507)); independent local run.
+
 ## Grown, not built
 
 Novus did not start as an architecture diagram. It started as a seed — a minimal agent loop — and every capability you see was grown in response to a real problem the agent hit the day before:
