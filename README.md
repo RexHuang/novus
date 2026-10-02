@@ -1,5 +1,7 @@
 # Novus
 
+English | [简体中文](README.zh-CN.md)
+
 > **Your phone is the agent. Your servers are its hands.**
 
 A self-evolving AI agent framework that runs anywhere — including the Android phone in your pocket. I stopped carrying a laptop: the agent lives on my phone (Termux) and reaches out to my servers, an overseas VPS, even the Mac under my desk, over a single WebSocket.
