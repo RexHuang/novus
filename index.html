@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Novus — a self-evolving agent that lives on your phone</title>
+<meta name="description" content="Novus is a self-evolving AI agent framework in ~15K lines of TypeScript. Your phone is the agent; your servers are its hands. Apache-2.0 open source.">
+<style>
+  :root{--bg:#0d1117;--card:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;--acc:#3fb950;--acc2:#58a6ff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65}
+  .wrap{max-width:880px;margin:0 auto;padding:0 20px}
+  a{color:var(--acc2);text-decoration:none} a:hover{text-decoration:underline}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{padding:64px 0 40px;border-bottom:1px solid var(--line)}
+  .prompt{color:var(--acc);font-weight:600}
+  h1{font-size:2.6rem;letter-spacing:-.02em;margin:6px 0 14px}
+  .tag{color:var(--dim);font-size:1.15rem;max-width:640px}
+  .tag b{color:var(--fg)}
+  .badges{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+  .badge{font-size:.78rem;border:1px solid var(--line);border-radius:999px;padding:3px 12px;color:var(--dim);background:var(--card)}
+  .badge b{color:var(--acc)}
+  section{padding:44px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:1.4rem;margin-bottom:18px}
+  .gif{border:1px solid var(--line);border-radius:12px;max-width:100%;display:block;margin:0 auto}
+  .gifwrap{background:var(--card);padding:14px;border-radius:14px;border:1px solid var(--line)}
+  .cap{text-align:center;color:var(--dim);font-size:.85rem;margin-top:10px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .card h3{font-size:1.02rem;margin-bottom:8px;color:var(--acc)}
+  .card p{color:var(--dim);font-size:.92rem}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;text-align:center}
+  .stat b{display:block;font-size:1.7rem;color:var(--acc2)}
+  .stat span{color:var(--dim);font-size:.85rem}
+  pre{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto;font-size:.88rem;margin:14px 0}
+  pre .c{color:var(--dim)}
+  .note{color:var(--dim);font-size:.88rem}
+  .zh{color:var(--dim)} .zh b{color:var(--fg)}
+  footer{padding:36px 0 60px;color:var(--dim);font-size:.88rem;text-align:center}
+  .btn{display:inline-block;background:var(--acc);color:#0d1117;font-weight:700;border-radius:8px;padding:10px 22px;margin-right:12px}
+  .btn:hover{text-decoration:none;filter:brightness(1.1)}
+  .btn.ghost{background:transparent;color:var(--acc2);border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="prompt">novus@phone:~$ whoami</div>
+  <h1>Novus</h1>
+  <p class="tag"><b>Your phone is the agent. Your servers are its hands.</b><br>
+  一个自我进化的 AI 智能体框架：跑在任何有 Node.js 的地方——包括你口袋里的安卓手机。它通过一条 WebSocket 指挥服务器集群，能读写自身源码、自主部署更新、无人值守执行定时与事件驱动任务。</p>
+  <div class="badges">
+    <span class="badge"><b>Apache-2.0</b> license</span>
+    <span class="badge"><b>~15K</b> lines TypeScript</span>
+    <span class="badge"><b>16</b> built-in tools</span>
+    <span class="badge"><b>v1.1.1</b> latest release</span>
+  </div>
+  <p style="margin-top:22px">
+    <a class="btn" href="https://github.com/RexHuang/novus">GitHub →</a>
+    <a class="btn ghost" href="https://github.com/RexHuang/novus/blob/main/README.zh-CN.md">中文文档</a>
+  </p>
+</div></header>
+
+<section><div class="wrap">
+  <h2>Real self-evolution, recorded live</h2>
+  <div class="gifwrap">
+    <img class="gif" src="https://raw.githubusercontent.com/RexHuang/novus/main/docs/demo.gif" alt="Live demo: Novus introduces itself, patrols a 4-node server fleet, renders its evolution dashboard, and lists autonomous tasks">
+    <p class="cap">One terminal session, zero cuts — introduces itself, patrols its fleet, renders its evolution dashboard, lists autonomous tasks. <b>中文演示</b>：自我介绍 → 多节点巡检 → 进化仪表盘 → 自主任务列表。</p>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Why Novus</h2>
+  <div class="cards">
+    <div class="card"><h3>Evolves itself — for real</h3><p>Finds bugs in its own source, patches its own TypeScript, runs the test suite, and ships the rebuild to every machine in its fleet. Not a marketing word — a reproducible loop with git history as evidence.<br><span class="zh">读改自身源码 → 编译测试 → 自主部署到全部节点，git 历史即证据。</span></p></div>
+    <div class="card"><h3>Phone-first architecture</h3><p>The lightest device carries the brain. Novus lives on an Android phone (Termux) and commands servers over a single WebSocket — personal AI infrastructure at the cost of an old phone.<br><span class="zh">手机承载大脑与记忆，服务器只是双手。</span></p></div>
+    <div class="card"><h3>Tiny, hackable core</h3><p>~15K lines of TypeScript, zero heavyweight SDKs, zero-config dynamic tool registry. Any Anthropic-protocol endpoint works — Anthropic, DeepSeek, Zhipu GLM, Moonshot Kimi, OpenRouter, local servers.<br><span class="zh">极小内核，双轨环境变量，国产大模型开箱即用。</span></p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>By the numbers</h2>
+  <div class="stats">
+    <div class="stat"><b>~15K</b><span>lines of TypeScript</span></div>
+    <div class="stat"><b>16 + 29</b><span>built-in + self-built tools</span></div>
+    <div class="stat"><b>42.5%</b><span>Terminal-Bench 4.0 core (80 tasks)</span></div>
+    <div class="stat"><b>5</b><span>nodes in daily-production fleet</span></div>
+    <div class="stat"><b>263</b><span>tests, all green</span></div>
+  </div>
+  <p class="note" style="margin-top:12px">Terminal-Bench figure is verifier-scored on the TB-core 80-task set. Fleet and tool counts reflect the maintainer's production deployment as of Oct 2026.</p>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Quickstart — 5 minutes</h2>
+<pre><span class="c"># any machine with Node.js — including Android Termux</span>
+git clone https://github.com/RexHuang/novus.git && cd novus
+npm install && npm run build
+
+<span class="c"># point it at any Anthropic-protocol API (or reuse ANTHROPIC_* vars)</span>
+export NOVUS_BASE_URL="https://api.anthropic.com"
+export NOVUS_AUTH_TOKEN="sk-..."
+export NOVUS_MODEL="claude-sonnet-4-20250514"
+
+npm link                <span class="c"># register the `novus` command</span>
+novus                   <span class="c"># interactive chat</span>
+novus --serve --port 24999   <span class="c"># HTTP API + web UI</span></pre>
+  <p class="note">Android: install Termux from F-Droid, then <code>pkg install nodejs-lts git python make clang</code> — full guide in <a href="https://github.com/RexHuang/novus/blob/main/MOBILE.md">MOBILE.md</a>. Works out of the box with Anthropic, DeepSeek, Zhipu GLM, Moonshot Kimi, OpenRouter, LiteLLM gateways and local servers.</p>
+</div></section>
+
+<footer><div class="wrap">
+  <p><a href="https://github.com/RexHuang/novus">GitHub</a> · <a href="https://github.com/RexHuang/novus/releases">Releases</a> · <a href="https://github.com/RexHuang/novus/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/RexHuang/novus/blob/main/SECURITY.md">Security Policy</a> · <a href="https://github.com/RexHuang/novus/blob/main/CONTRIBUTING.md">Contributing</a></p>
+  <p style="margin-top:10px">Apache-2.0 · maintained by the Novus contributors · <span class="zh">开源向实，从口袋开始。</span></p>
+</div></footer>
+</body>
+</html>
