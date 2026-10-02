@@ -1,5 +1,7 @@
 # Novus
 
+[English](README.md) | 简体中文
+
 > **手机是 agent，服务器是它的手。**
 
 一个自我进化的 AI agent 框架，跑在任何有 Node.js 的地方——包括你口袋里的安卓手机。我已经不用背笔记本电脑了：agent 住在手机（Termux）上，通过一条 WebSocket 指挥我的云服务器、海外 VPS，甚至桌底的 Mac。
