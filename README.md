@@ -7,7 +7,7 @@ English | [简体中文](README.zh-CN.md)
 A self-evolving AI agent framework that runs anywhere — including the Android phone in your pocket. I stopped carrying a laptop: the agent lives on my phone (Termux) and reaches out to my servers, an overseas VPS, even the Mac under my desk, over a single WebSocket.
 
 <p align="center">
-  <img src="docs/demo.gif" width="380" alt="Live demo: Novus introduces itself, patrols a 4-node server fleet, renders its evolution dashboard (35 evolutions, 34 self-built tools), and lists its autonomous tasks — all in one terminal session">
+  <img src="docs/demo.gif" width="380" alt="Live demo: Novus introduces itself, patrols a 4-node server fleet, renders its evolution dashboard (57 evolutions, 34 self-built tools), and lists its autonomous tasks — all in one terminal session">
 </p>
 
 > Every answer in this recording was generated live in one session. Only the question order is scripted.
@@ -19,8 +19,8 @@ A self-evolving AI agent framework that runs anywhere — including the Android 
 Claude Code taught the world what agent loops look like. Novus asks the other question: **how small can the core be?**
 
 - **~15K lines of TypeScript** (under 1 MB of source)
-- **16 built-in tools**, zero-config dynamic registry
-- **109 tests**, builds clean in seconds
+- **6 built-in tools + 17 custom tools shipped in-repo**, zero-config dynamic registry
+- **116 tests**, builds clean in seconds
 - Runs on a phone, a Pi, a VPS, or your laptop — if Node.js runs, Novus runs
 
 No bundling of heavyweight SDKs, no vendor lock-in. Just the loop: *perceive → think → act → remember → evolve*.
@@ -32,12 +32,12 @@ Not "self-improving" as a marketing word. The loop is concrete — and it ran, e
 - **Reads and rewrites its own source code** — that day, the agent found 4 bugs in its own federation registry (a hardcoded version string, a node type it couldn't recognize, a zombie entry that refused to die, and a liveness probe that lied), patched its own TypeScript, rebuilt, and shipped the fix to every machine it runs on
 - **Deploys its own updates** across the fleet — phone → cloud VM → overseas VPS, over SSH and WebSocket
 - **Keeps lessons across sessions** — a persistent knowledge store, not a context window that resets. A fix found once is a lesson stored; the same mistake can't repeat
-- **Watches its own habits** — 10 behavioral patterns identified (over-calling tools, redundant searches…), 7 already corrected by self-imposed rules that now gate its own tool calls
-- **Logs every evolution** — 15 so far, each recording what changed and why
+- **Watches its own habits** — 11 behavioral patterns identified (over-calling tools, redundant searches…), 6 already corrected by self-imposed rules that now gate its own tool calls
+- **Logs every evolution** — 57 so far, each recording what changed and why
 
 Bug → self-diagnosis → self-patch → self-deploy → lesson stored. No human typed a line of that fix. The maintainer watched it happen, then updated this README.
 
-> **Fair warning:** the numbers above are already stale — the real count stands at 35 self-evolutions and 34 self-built tools, and counting. The agent keeps outpacing this README. That's the point.
+> **Fair warning:** the numbers above are already stale — the real count stands at 57 self-evolutions and 34 self-built tools (as of Oct 8), and counting. The agent keeps outpacing this README. That's the point.
 
 *(The federation layer itself ships in v1.2 — see [Roadmap](#roadmap).)*
 
@@ -96,7 +96,7 @@ novus --serve --port 24999   # HTTP API + web UI
 
 ## Not a demo — it runs my infrastructure
 
-Novus has been my daily driver for **one month of intense use**: 140+ sessions, 560 knowledge entries accumulated. It maintains a 3-node deployment (phone ↔ cloud VM ↔ overseas VPS) that self-heals, ships daily news digests, and publishes articles. The agent wrote parts of its own release tooling. This README's narrative was drafted by Novus itself.
+Novus has been my daily driver for **two months of intense use**: 300+ sessions, 1,300+ knowledge entries accumulated. It maintains a 3-node deployment (phone ↔ cloud VM ↔ overseas VPS) that self-heals, ships daily news digests, and publishes articles. The agent wrote parts of its own release tooling. This README's narrative was drafted by Novus itself.
 
 *The multi-node federation layer is not open-sourced (yet) — see [Roadmap](#roadmap).*
 
@@ -108,10 +108,10 @@ Self-reported: **34/80 tasks (42.50%)** on [Terminal-Bench Core 0.1.1](https://g
 
 Novus did not start as an architecture diagram. It started as a seed — a minimal agent loop — and every capability you see was grown in response to a real problem the agent hit the day before:
 
-- **Memory** grew because sessions kept forgetting things worth keeping — a fact learned on Monday shouldn't be re-learned on Friday. It now carries 560 entries across sessions.
+- **Memory** grew because sessions kept forgetting things worth keeping — a fact learned on Monday shouldn't be re-learned on Friday. It now carries 1,300+ entries across sessions.
 - **Context management** grew because windows overflow — sessions now compress, checkpoint, and restore themselves.
 - **Web access** grew because an agent sealed off from the internet cannot perceive the world.
-- **26 custom tools** grew one at a time — each one an answer to yesterday's friction, not a line-item in a design doc.
+- **34 custom tools** grew one at a time — each one an answer to yesterday's friction, not a line-item in a design doc.
 - **Behavior reflection** grew because the same mistake kept repeating — Novus now watches its own patterns (over-tool-calling, redundant calls) and corrects them.
 
 Every feature here exists because the agent using it demanded it. The maintainer's job was mostly to say yes.
