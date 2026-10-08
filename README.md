@@ -39,7 +39,7 @@ Bug → self-diagnosis → self-patch → self-deploy → lesson stored. No huma
 
 > **Fair warning:** the numbers above are already stale — the real count stands at 57 self-evolutions and 34 self-built tools (as of Oct 8), and counting. The agent keeps outpacing this README. That's the point.
 
-*(The federation layer itself ships in v1.2 — see [Roadmap](#roadmap).)*
+*(The multi-node federation layer is in the works — see [Roadmap](#roadmap).)*
 
 ## Quickstart (5 minutes)
 
@@ -127,8 +127,8 @@ You'll notice there's no plugin marketplace and no "skills" framework. That's de
 
 ## Roadmap
 
-- [ ] v1.2 — multi-agent federation protocol (the phone ↔ servers story, open-sourced)
-- [ ] v1.3 — org-level orchestration (roles, pipelines, debates)
+- [ ] multi-agent federation protocol — the phone ↔ servers story (in the works)
+- [ ] org-level orchestration (roles, pipelines, debates)
 
 ## Contributing
 
