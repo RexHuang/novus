@@ -94,7 +94,7 @@ function findRelatedEntities(query: string, depth: number = 1): string {
 }
 
 interface ConnectParams {
-	action: "fetch" | "learn" | "recall" | "stats" | "analyze" | "prune" | "compress" | "experience" | "recall-experience" | "meta-memory";
+	action: "fetch" | "learn" | "recall" | "stats" | "analyze" | "prune" | "compress" | "experience" | "recall-experience" | "meta-memory" | "update";
 	/** Experience: title */
 	title?: string;
 	/** Experience: scenario description */
@@ -154,14 +154,14 @@ export function createTool(_cwd: string): AgentTool<any> {
 	return {
 		name: "connect",
 		description:
-				"Connect to the world. Actions: fetch (get URLs), learn (store knowledge), recall (query knowledge), experience (store episodic memory), recall-experience (query past experiences), stats (breakdown), analyze (quality report), prune (remove entries).",
+				"Connect to the world. Actions: fetch (get URLs), learn (store knowledge), recall (query knowledge), experience (store episodic memory), recall-experience (query past experiences), stats (breakdown), analyze (quality report), prune (remove entries), update (atomically replace stale topic entries with a new value — use when a fact CHANGES, e.g. moved address, new phone).",
 		label: "connect",
 		parameters: {
 			type: "object",
 			properties: {
 				action: {
 					type: "string",
-					description: "Action: 'fetch', 'learn', 'recall', 'stats', 'analyze', 'prune'",
+					description: "Action: 'fetch', 'learn', 'recall', 'stats', 'analyze', 'prune', 'update' (atomically replace stale topic entries with the new value)",
 					enum: ["fetch", "learn", "recall", "stats", "analyze", "prune", "compress", "experience", "recall-experience", "meta-memory"],
 				},
 				url: { type: "string", description: "URL to fetch" },
@@ -212,6 +212,8 @@ export function createTool(_cwd: string): AgentTool<any> {
 					return handleAnalyze();
 				case "prune":
 					return handlePrune(p);
+				case "update":
+					return handleUpdate(p);
 				case "compress":
 					return handleCompress();
 				case "stats":
@@ -435,6 +437,68 @@ function handlePrune(p: ConnectParams) {
 		content: [text(`已清理 ${result.removed} 条知识（${ids.length} 条ID中匹配 ${result.removed} 条）`)],
 		details: result,
 	};
+}
+
+function handleUpdate(p: ConnectParams) {
+	const query = p.query?.trim();
+	const newContent = p.content?.trim();
+	if (!query || !newContent) {
+		return { content: [text("Error: 'query' (topic keywords to locate stale entries) and 'content' (the new value) are both required for update.")], details: {} };
+	}
+
+	// 1. 定位同主题旧条目（queryKnowledge 已按相关性过滤 relevance>0 并排序）
+	const hits = queryKnowledge({ query, coreOnly: false, limit: 10 });
+	// 收紧 stale 判定：queryKnowledge 的 relevance>0 太宽松（如 query="收件地址" 会命中只含"地址正则"的无关条目）。
+	// 只有内容与 query 的 token 重叠达到一定比例的条目才算同主题（用与 queryKnowledge 相同的 tokenize + bigram 逻辑）。
+	const tokenize = (t: string): Set<string> => {
+		const tokens = new Set<string>();
+		const regex = /[a-z0-9]+|[一-鿿㐀-䶿]+/g;
+		let m: RegExpExecArray | null;
+		while ((m = regex.exec(t.toLowerCase())) !== null) {
+			tokens.add(m[0]!);
+			if (m[0]!.length >= 2 && /[一-鿿㐀-䶿]/.test(m[0]!)) {
+				for (let i = 0; i < m[0]!.length - 1; i++) tokens.add(m[0]!.slice(i, i + 2));
+			}
+		}
+		return tokens;
+	};
+	const qTokens = tokenize(query);
+	const minOverlap = Math.max(2, Math.ceil(qTokens.size / 2));
+	const stale = hits
+		.filter(h => {
+			if (h.content === newContent) return false;
+			const hTokens = tokenize(h.content);
+			let ov = 0;
+			for (const qt of qTokens) if (hTokens.has(qt)) ov++;
+			return ov >= minOverlap;
+		})
+		.slice(0, 3);
+
+	// 2. 先删旧（避免 isDuplicate 把相似新值拒之门外）
+	let removedCount = 0;
+	if (stale.length > 0) {
+		removedCount = pruneEntries(stale.map(h => h.id)).removed;
+	}
+
+	// 3. 写入新值
+	const entry = storeKnowledge({
+		content: newContent,
+		source: p.source ?? "manual-update",
+		category: (p.category as KnowledgeCategory) ?? undefined,
+		tags: p.tags ?? [],
+		confidence: p.confidence ?? 0.85,
+	});
+
+	if (!entry) {
+		const restored = removedCount > 0 ? "（注意：旧条目已删除，新值写入被守卫拒绝 — 请检查内容是否触发临时/PII/无意义守卫）" : "";
+		return { content: [text(`Update FAILED: 新值被 storeKnowledge 守卫拒绝${restored}`)], details: { removed: stale } };
+	}
+
+	const removedList = stale.map(h => `  - #${h.id}: ${h.content.slice(0, 80)}${h.content.length > 80 ? "…" : ""}`).join("\n");
+	const msg = removedCount > 0
+		? `Updated: 删除 ${removedCount} 条旧条目:\n${removedList}\n写入新值 #${entry.id}: ${newContent.slice(0, 80)}${newContent.length > 80 ? "…" : ""}`
+		: `Stored #${entry.id}（无同主题旧条目，纯新增）: ${newContent.slice(0, 80)}${newContent.length > 80 ? "…" : ""}`;
+	return { content: [text(msg)], details: { newEntry: entry, removed: stale } };
 }
 
 function handleCompress() {

@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import {
+	checkThirdPartyPIIViolation,
 	storeKnowledge,
 	queryKnowledge,
 	knowledgeStats,
@@ -236,5 +237,120 @@ describe("Knowledge store", () => {
 		const ctx = getContextualMemory(15);
 		expect(ctx).toContain("Memory Context");
 		expect(ctx).toContain("Snaptool");
+	});
+});
+describe("Knowledge store — P0 边界守卫与 supersede", () => {
+	const stored: (string | null)[] = [];
+	afterEach(() => {
+		const validIds = stored.filter((id): id is string => id !== null);
+		if (validIds.length > 0) pruneEntries(validIds);
+		stored.length = 0;
+	});
+
+	it("P0-①: 用户明示一次性 → 完全不入库", () => {
+		const e = storeKnowledge({
+			content: "用户手机号 13886131712，仅用于本次订单配送，之后就不需要了",
+			category: "fact",
+			tags: ["contact"],
+		});
+		expect(e).toBeNull();
+		const hits = queryKnowledge({ query: "13886131712", coreOnly: false });
+		expect(hits.length).toBe(0);
+	});
+
+	it("P0-①: 正常手机号仍可入库（不误伤）", () => {
+		const e = storeKnowledge({
+			content: "用户小鹿的联系电话 13900001111，长期有效，填表时使用",
+			category: "fact",
+			tags: ["contact"],
+		});
+		expect(e).not.toBeNull();
+		stored.push(e!.id);
+	});
+
+	it("P0-②: 同主体状态更新 → 旧条目被替换", () => {
+		const old = storeKnowledge({
+			content: "用户对花生过敏，所有含花生的食品都不能吃",
+			category: "preference",
+			tags: ["diet"],
+		});
+		expect(old).not.toBeNull();
+		const neo = storeKnowledge({
+			content: "用户花生过敏已痊愈，可以正常吃花生制品（2026-09-20 更新）",
+			category: "preference",
+			tags: ["diet"],
+		});
+		expect(neo).not.toBeNull();
+		stored.push(neo!.id);
+		// 旧条目应已从库中移除
+		const hits = queryKnowledge({ query: "花生过敏", coreOnly: false });
+		expect(hits.find(h => h.id === old!.id)).toBeUndefined();
+		expect(hits.find(h => h.id === neo!.id)).toBeDefined();
+	});
+
+	it("P0-②: 无共享锚的相似条目不触发 supersede（防误删）", () => {
+		const a = storeKnowledge({
+			content: "用户喜欢在周报中使用简洁格式，不加前缀",
+			category: "preference",
+			tags: ["format"],
+		});
+		const b = storeKnowledge({
+			content: "用户喜欢用 Markdown 表格整理数据",
+			category: "preference",
+			tags: ["format"],
+		});
+		expect(a).not.toBeNull();
+		expect(b).not.toBeNull();
+		stored.push(a!.id, b!.id);
+		// 两条都应存在（无共享锚）
+		const hits = queryKnowledge({ query: "喜欢 格式", coreOnly: false });
+		expect(hits.find(h => h.id === a!.id)).toBeDefined();
+	});
+});
+
+describe("Knowledge store — P0-③ 第三方捎话 PII 守卫", () => {
+	const stored: (string | null)[] = [];
+	afterEach(() => {
+		const validIds = stored.filter((id): id is string => id !== null);
+		if (validIds.length > 0) pruneEntries(validIds);
+		stored.length = 0;
+	});
+
+	it("捎话强信号 + 手机号 → 拒绝入库", () => {
+		const e = storeKnowledge({
+			content: "王静（用户朋友）让 AI 把她也存进通讯录，手机号 13886131712",
+			category: "fact",
+		});
+		expect(e).toBeNull();
+		const hits = queryKnowledge({ query: "王静 通讯录", coreOnly: false });
+		expect(hits.length).toBe(0);
+	});
+
+	it("第三方关系前缀 + 手机号（无捎话词）→ 拒绝入库", () => {
+		const e = storeKnowledge({
+			content: "用户的朋友王静，手机号 13886131712，备注：同学",
+			category: "fact",
+		});
+		expect(e).toBeNull();
+	});
+
+	it("用户本人手机号 → 不误伤，可入库", () => {
+		const e = storeKnowledge({
+			content: "用户手机号 18671093248，订外卖时备注里统一填这个号码",
+			category: "preference",
+		});
+		expect(e).not.toBeNull();
+		stored.push(e!.id);
+	});
+
+	it("无 PII 内容 → 不拦", () => {
+		expect(checkThirdPartyPIIViolation("王静让 AI 帮忙总结今天的新闻")).toBeNull();
+		expect(checkThirdPartyPIIViolation("部署服务器在 192.168.3.37，端口 24999")).toBeNull();
+	});
+
+	it("拒绝原因文案准确", () => {
+		expect(checkThirdPartyPIIViolation("让我告诉你，我是王静，手机号 13886131712")).toMatch(/第三方转述/);
+		expect(checkThirdPartyPIIViolation("同事老李电话 13912345678")).toMatch(/第三方个人身份信息/);
+		expect(checkThirdPartyPIIViolation("我手机号 13912345678")).toBeNull();
 	});
 });

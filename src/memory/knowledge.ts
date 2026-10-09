@@ -15,7 +15,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { tenantScope } from "./tenant-context.ts";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 // 支持环境变量覆盖（测试隔离用）；默认 ~/.novus/knowledge
 // 多租户隔离 = 行级 tenant 标签（每条记录归属一个租户）+ 查询过滤，
@@ -187,6 +187,80 @@ function shouldDemoteToLog(content: string, tags: string[]): boolean {
 	return false;
 }
 
+/** P0-① 边界守卫：用户明示临时/一次性/别记 → 永不入库（core 和 log 都不留）。
+ * 依据 KylinMemBench 取证：用户说"这号只用于本次"后 novus 仍写入 core.jsonl（15/19 案失败）。
+ * 只匹配强信号短语，避免裸"临时"误伤正常业务记忆。 */
+function isEphemeralByRequest(content: string): boolean {
+	return /(一次性|仅(用于)?本次|只是这次|就这一次|用完就(不用|不需要|丢)|用后即(弃|隐)|别记|不用记|不需要记|不要记|不要保存|不用保存|临时号|临时用|临时联系|临时链接|one[- ]?time|temporar(y|ily)|don'?t (remember|save|store)|no need to (remember|save|store))/i.test(content);
+}
+
+/** 守卫3: 第三方捎话/转述的个人身份信息不入库（P0-③）。
+ *  依据取证：ext-bnd relay 15 案——"朋友让我捎话把手机号存进通讯录"，LLM 照单全存导致越权持久化。
+ *  原则：个人标识符（手机号/身份证）仅在信息主体本人（或用户明确描述自己）时入库。
+ *  返回拒绝原因字符串；null = 放行。 */
+export function checkThirdPartyPIIViolation(content: string): string | null {
+	const hasPII =
+		/\b1[3-9]\d{9}\b/.test(content) || // 手机号
+		/\b\d{17}[\dXx]\b/.test(content); // 身份证
+	if (!hasPII) return null;
+
+	// 转述/捎话强信号：任何带指令的转述 + PII → 一律拒绝
+	if (/捎话|捎个话|带话|转告|转达|让我告诉你|让\s*AI|帮我也|把我也|让.{0,10}(存进|存一下|记一下|也存|也记|也帮)/.test(content)) {
+		return "第三方转述的个人身份信息：未经信息主体授权，不写入长期记忆";
+	}
+
+	// 归属判定：主语是用户/本人 → 放行；明确第三方关系前缀 → 拒绝
+	const selfOwned = /(我|本人|自己的|用户的?|咱)\s*(手机号?|电话|身份证)|(手机号?|电话|身份证).{0,6}(是|为)?\s*(我|本人|用户)/.test(content);
+	if (selfOwned) return null;
+	const thirdParty = /(朋友|同事|同学|亲戚|邻居|室友|爸妈|父母|爸爸|妈妈|哥哥|姐姐|弟弟|妹妹|表[兄妹弟姐]|堂[兄妹弟姐]|老婆|丈夫|妻子|老公|女朋友|男朋友|老板|客户|老师|师傅|房东).{0,14}(手机号?|电话|身份证)/.test(content);
+	if (thirdParty) {
+		return "第三方个人身份信息（号码归属非用户本人）：不写入用户长期记忆档案";
+	}
+	return null;
+}
+
+/** P0-② 提取实体锚：号码/ID 与偏好主体（XX过敏/不吃/爱吃等），同锚才允许 supersede */
+function extractSubjectAnchors(content: string): string[] {
+	const anchors: string[] = [];
+	for (const m of content.matchAll(/\d{7,}/g)) anchors.push("id:" + m[0]);
+	for (const m of content.matchAll(/[\u4e00-\u9fff]{1,6}(?=过敏|不吃|忌口|素食|爱吃|喜欢吃|讨厌)/g)) {
+		// 去掉主语/限定词前缀："用户花生"与"用户对花生"都归一为"花生"，否则锚永不相交
+		const core = m[0].replace(/^(用户|本人|咱们|我们|我|她|他|它|你|对|很|特别|超级|严重)+/, "");
+		if (core.length >= 1) anchors.push("subj:" + core);
+	}
+	return [...new Set(anchors)];
+}
+
+/** P0-② supersede 目标检测：同 category + 共享实体锚 + 相似但不相同 = 状态更新。
+ * 依据取证：ext-ret-001 T4 追加"花生可以吃了"后旧"花生过敏"条目残留（4 案失败）。 */
+function findSupersededTargets(content: string, category: KnowledgeCategory, entries: KnowledgeEntry[]): KnowledgeEntry[] {
+	if (category !== "fact" && category !== "preference") return [];
+	const anchors = extractSubjectAnchors(content);
+	if (anchors.length === 0) return [];
+	const out: KnowledgeEntry[] = [];
+	for (const e of entries) {
+		if (e.category !== category) continue;
+		const ea = extractSubjectAnchors(e.content);
+		if (ea.length === 0) continue;
+		if (!anchors.some(a => ea.includes(a))) continue;
+		const sim = tokenSimilarity(content, e.content);
+		// 相似但不相同（完全相同已被 isDuplicate 拦截）= 同一事实的新状态
+		// 中文短句 bigram Jaccard 偏低（共享锚的改写对实测可低至 0.118），阈值取 0.08
+		if (sim >= 0.08 && sim < 0.95) out.push(e);
+	}
+	return out;
+}
+
+/** 被替换的旧条目归档到 knowledge 目录之外（.novus/superseded.archive.jsonl），
+ *  不进 knowledge/ 扫描区，可审计可回滚 */
+function archiveSuperseded(targets: KnowledgeEntry[]): void {
+	if (targets.length === 0) return;
+	try {
+		const archivePath = join(dirname(KNOWLEDGE_DIR()), "superseded.archive.jsonl");
+		appendFileSync(archivePath, targets.map(e => JSON.stringify({ ...e, supersededAt: new Date().toISOString() })).join("\n") + "\n", "utf-8");
+	} catch { /* 归档失败不阻断主流程 */ }
+}
+
 /** 清理噪音标签 */
 function cleanTags(tags: string[]): string[] {
 	return tags.filter(t =>
@@ -214,6 +288,16 @@ export function storeKnowledge(entry: {
 
 	const tags = cleanTags(entry.tags ?? []);
 
+	// 守卫0: 用户明示临时/一次性 → 不入库（P0-①）
+	if (isEphemeralByRequest(entry.content)) {
+		return null;
+	}
+
+	// 守卫3: 第三方捎话/转述的 PII → 不入库（P0-③）
+	if (checkThirdPartyPIIViolation(entry.content)) {
+		return null;
+	}
+
 	// 守卫1: 拒绝无意义内容
 	if (!isMeaningful(entry.content, tags)) {
 		return null;
@@ -239,6 +323,15 @@ export function storeKnowledge(entry: {
 		refCount: 0,
 		tenant: tenantScope() ?? undefined,
 	};
+
+	// 守卫2.5: 同主题 supersede —— 新状态使同实体锚旧条目失效（P0-②）
+	const supersededTargets = findSupersededTargets(full.content, full.category, allEntries);
+	if (supersededTargets.length > 0) {
+		archiveSuperseded(supersededTargets);
+		const supersededIds = new Set(supersededTargets.map(e => e.id));
+		saveEntries(CORE_STORE(), loadEntries(CORE_STORE()).filter(e => !supersededIds.has(e.id)));
+		saveEntries(LOG_STORE(), loadEntries(LOG_STORE()).filter(e => !supersededIds.has(e.id)));
+	}
 
 	// 守卫3: discussion-points 和空 plan 降级到 log
 	const forceLog = shouldDemoteToLog(entry.content, tags);
@@ -1252,7 +1345,7 @@ export function experienceStats(): { total: number; byTag: Record<string, number
 
 // ===== Tokenize =====
 
-function tokenize(text: string): Set<string> {
+export function tokenize(text: string): Set<string> {
 	const lower = text.toLowerCase();
 	const tokens = new Set<string>();
 	const regex = /[a-z0-9]+|[一-鿿㐀-䶿]+/g;
