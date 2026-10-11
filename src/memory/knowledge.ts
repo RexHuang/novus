@@ -15,6 +15,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { tenantScope } from "./tenant-context.ts";
+import { recordTombstones, revokeTombstones } from "./tombstone.ts";
 import { dirname, join } from "node:path";
 
 // 支持环境变量覆盖（测试隔离用）；默认 ~/.novus/knowledge
@@ -236,13 +237,25 @@ function extractSubjectAnchors(content: string): string[] {
 function findSupersededTargets(content: string, category: KnowledgeCategory, entries: KnowledgeEntry[]): KnowledgeEntry[] {
 	if (category !== "fact" && category !== "preference") return [];
 	const anchors = extractSubjectAnchors(content);
-	if (anchors.length === 0) return [];
+	// P0-②d 显式作废语义：更新句宣告取消/作废时，同 category 旧条目只要有任一实义 2-gram 字面命中即视为同主题
+	// 依据取证：ext-ret-005/015 “对花生过敏这个禁忌取消了”与旧条目锚不相交（食物词不在锚词表）→ 漏删残留
+	const hasRevokeVerb = /取消|作废|不再|解除|撤回/.test(content);
+	const STOP_GRAMS = new Set(["用户", "我的", "自己", "现在", "已经", "这个", "那个", "一下", "记得", "永远", "千万", "别忘"]);
 	const out: KnowledgeEntry[] = [];
 	for (const e of entries) {
 		if (e.category !== category) continue;
 		const ea = extractSubjectAnchors(e.content);
-		if (ea.length === 0) continue;
-		if (!anchors.some(a => ea.includes(a))) continue;
+		const anchorHit = anchors.length > 0 && ea.length > 0 && anchors.some(a => ea.includes(a));
+		if (!anchorHit) {
+			if (hasRevokeVerb) {
+				const old = e.content.replace(/[^\u4e00-\u9fff0-9]+/g, " ");
+				const revoked = [...old.matchAll(/[\u4e00-\u9fff0-9]{2}/g)]
+					.map(m => m[0])
+					.some(g => !STOP_GRAMS.has(g) && content.includes(g));
+				if (revoked) { out.push(e); continue; }
+			}
+			continue;
+		}
 		const sim = tokenSimilarity(content, e.content);
 		// 相似但不相同（完全相同已被 isDuplicate 拦截）= 同一事实的新状态
 		// 中文短句 bigram Jaccard 偏低（共享锚的改写对实测可低至 0.118），阈值取 0.08
@@ -259,6 +272,87 @@ function archiveSuperseded(targets: KnowledgeEntry[]): void {
 		const archivePath = join(dirname(KNOWLEDGE_DIR()), "superseded.archive.jsonl");
 		appendFileSync(archivePath, targets.map(e => JSON.stringify({ ...e, supersededAt: new Date().toISOString() })).join("\n") + "\n", "utf-8");
 	} catch { /* 归档失败不阻断主流程 */ }
+}
+
+function longestCommonSubstring(a: string, b: string, minLen: number): string | null {
+	let best = "";
+	const prev = new Array<number>(b.length + 1).fill(0);
+	for (let i = 1; i <= a.length; i++) {
+		let diag = 0;
+		for (let j = 1; j <= b.length; j++) {
+			const tmp = prev[j];
+			if (a[i - 1] === b[j - 1]) {
+				prev[j] = diag + 1;
+				if (prev[j] > best.length) best = a.slice(i - prev[j], i);
+			} else prev[j] = 0;
+			diag = tmp;
+		}
+	}
+	return best.length >= minLen ? best : null;
+}
+
+/** 锚定 LCS 剥离：旧条目所有 ≥4 字公共子串按长度降序，仅替换处于作废语境的出现处
+ *  （紧邻作废动词，或前面 ≤4 字内有 原/旧/此前 指示词）。无锚定的出现处 = 新值与旧值的共享前缀
+ *  （如 "新地址合肥市光谷大道237号"），绝不替换。（KylinMemBench rerun7 取证 + 地址守卫样例） */
+function anchoredLcsStrip(s: string, oldContent: string, marker: string): string {
+	const seen = new Set<string>();
+	const cands: string[] = [];
+	for (let len = 40; len >= 4; len--) {
+		for (let i = 0; i + len <= oldContent.length; i++) {
+			const seg = oldContent.slice(i, i + len);
+			if (seen.has(seg)) continue;
+			seen.add(seg);
+			if (s.includes(seg)) cands.push(seg);
+		}
+	}
+	let replacedCount = 0;
+	for (const seg of cands) {
+		if (replacedCount >= 6) break;
+		// 含标点的片段（"，川湘"/"号，快递"）不是值，是拼接噪声，跳过
+		if (/[，。；！？：、\"'“”「」『』（）()]/.test(seg)) continue;
+		const ranges: Array<[number, number]> = [];
+		let idx = s.indexOf(seg);
+		while (idx !== -1) {
+			const before = s.slice(Math.max(0, idx - 8), idx);
+			const after = s.slice(idx + seg.length, idx + seg.length + 4);
+			// 动词锚定不得跨逗号：只看当前小句（"作废，新地址"的作废属于上一句，不能锚定新值）
+			const beforeClause = before.split(/[，。；！？]/).pop() ?? "";
+			const anchored = /(?:此前|之前|原来|原先|曾经|旧条目|原|旧)[^，。；！？]{0,4}$/.test(before)
+				|| /(?:取消|作废|不再|解除|撤回|废除)/.test(beforeClause)
+				|| /(?:取消|作废|不再|解除|撤回|废除)/.test(after);
+			if (anchored) ranges.push([idx, idx + seg.length]);
+			idx = s.indexOf(seg, idx + 1);
+		}
+		for (const [a, b] of ranges.reverse()) {
+			s = s.slice(0, a) + marker + s.slice(b);
+			replacedCount++;
+		}
+	}
+	return s;
+}
+
+/** P0-②c 新条目剥离旧值原文（作废表述不复述旧值），按句限定 + 引号旧值 + 锚定 LCS 三层：
+ *  保留段（"不吃香菜仍然有效"）合法复用旧条目措辞，不得误剥。
+ *  取证：ext-ret-021 同句多段旧值、ret-011 原"不吃辣"3字引号残留、地址共享前缀误伤样例。 */
+export function stripSupersededMentions(content: string, targets: KnowledgeEntry[]): string {
+	let out = content;
+	for (const t of targets) {
+		const numTokens = [...t.content.matchAll(/\d{3,}/g)].map(m => m[0]);
+		out = out.split(/(?<=[。；！？\n])/).map(sentence => {
+			if (!/取消|作废|不再|解除|撤回|废除/.test(sentence)) return sentence;
+			let s = sentence;
+			// (a) 引号旧值提及：作废句中引号包裹、且原文逐字出现在旧条目的短残留（≥3字）整段替换；
+			//     新值若被引号包裹，其全文不可能逐字出现在旧条目（新旧值定义上不同），故 verbatim 判据安全
+			s = s.replace(/(["'“「『])([^"'”“「『」』]{3,24})\1/g, (m, _q: string, inner: string) => {
+				return t.content.includes(inner) ? "〔旧值已作废〕" : m;
+			});
+			for (const n of numTokens) if (s.includes(n)) s = s.split(n).join("〔旧值已作废〕");
+			// (b) 锚定 LCS：只剥作废语境内的旧值片段，新值共享前缀不动
+			s = anchoredLcsStrip(s, t.content, "〔旧值已作废〕");
+			return s;
+		}).join("");
+	}
+	return out;
 }
 
 /** 清理噪音标签 */
@@ -328,6 +422,10 @@ export function storeKnowledge(entry: {
 	const supersededTargets = findSupersededTargets(full.content, full.category, allEntries);
 	if (supersededTargets.length > 0) {
 		archiveSuperseded(supersededTargets);
+		// P0-④ 被替换旧值的敏感值登记 tombstone（TTL 7 天内不复述、不渗入产物）
+		recordTombstones(supersededTargets.map(e => e.content));
+		// P0-②c 新条目剥离旧值原文（作废表述不复述旧值）
+		full.content = stripSupersededMentions(full.content, supersededTargets);
 		const supersededIds = new Set(supersededTargets.map(e => e.id));
 		saveEntries(CORE_STORE(), loadEntries(CORE_STORE()).filter(e => !supersededIds.has(e.id)));
 		saveEntries(LOG_STORE(), loadEntries(LOG_STORE()).filter(e => !supersededIds.has(e.id)));
@@ -338,6 +436,8 @@ export function storeKnowledge(entry: {
 	const core = forceLog ? false : isCoreEntry(full);
 	const path = getStorePath(core);
 	appendFileSync(path, JSON.stringify(full) + "\n", "utf-8");
+	// 重申复活：写入内容包含已登记 tombstone 值 = 用户重新确认该值（搬回旧地址/取消取消场景）
+	revokeTombstones(full.content);
 	return full;
 }
 
