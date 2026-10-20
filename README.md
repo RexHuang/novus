@@ -102,10 +102,8 @@ Novus has been my daily driver for **two months of intense use**: 300+ sessions,
 
 ## Benchmark
 
-Self-reported: **34/80 tasks (42.50%)** on [Terminal-Bench Core 0.1.1](https://github.com/harbor-framework/terminal-bench) — 80/80 attempted, 186 trials, agent = Novus + GLM-5.3-flash on local Docker. Full per-task table, methodology and disclosure: [docs/benchmark/terminal-bench-core-0.1.1.md](docs/benchmark/terminal-bench-core-0.1.1.md). Not on the official leaderboard — external submissions are not accepted there ([harbor-framework/terminal-bench#1507](https://github.com/harbor-framework/terminal-bench/issues/1507)); independent local run.
 
-
-Latest: **40/63 tasks (63.5%)** on Terminal-Bench 4.0 (63 CPU tasks, best-of-all-runs, hint-assisted multi-round iteration) — the same model (GLM-5.3-flash) scores 35.76% under the official single-run harness. Comparison table, methodology and disclosure: [BENCHMARKS.md](BENCHMARKS.md).
+**40/63 tasks (63.5%)** on Terminal-Bench 4.0 (63 CPU tasks, best-of-all-runs, hint-assisted multi-round iteration) — the same model (GLM-5.3-flash) scores 35.76% under the official single-run harness. Comparison table, methodology and disclosure: [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Grown, not built
 
