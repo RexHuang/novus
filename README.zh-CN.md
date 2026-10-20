@@ -106,6 +106,11 @@ Novus 不是从一张架构图开始的。它从一颗种子——一个最小�
 
 你会发现这里没有插件市场，也没有现在业界流行的「skills」体系。这是刻意的设计，不是遗漏：插件机制，本质是给「不能自己长出能力」的系统的补偿方案——而 Novus 能自己长。从种子长成的树没有接缝，拼起来的东西有。也许某天某个能力真的长不出来，那时再谈插件。到目前为止，还没有过这种情况。
 
+
+## 基准测试
+
+最新：Terminal-Bench 4.0 上 **40/63（63.5%）**（63 CPU 题，best-of-all-runs + hint 辅助多轮迭代；同一模型 GLM-5.3-flash 官方单次 harness 为 35.76%）——对照表、方法论与诚实口径见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
+
 ## 哲学
 
 1. **Agent 才是产品，不是 App。** 没有窗框，没有 Electron——一个 REPL 和一个 HTTP 服务器。
