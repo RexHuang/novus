@@ -103,7 +103,7 @@ Novus has been my daily driver for **two months of intense use**: 300+ sessions,
 ## Benchmark
 
 
-**40/63 tasks (63.5%)** on Terminal-Bench 4.0 (63 CPU tasks, best-of-all-runs, hint-assisted multi-round iteration) — the same model (GLM-5.3-flash) scores 35.76% under the official single-run harness. Comparison table, methodology and disclosure: [BENCHMARKS.md](BENCHMARKS.md).
+**41/63 tasks (65.1%)** on Terminal-Bench 4.0 (63 CPU tasks, best-of-all-runs, hint-assisted multi-round iteration) — the same model (GLM-5.3-flash) scores 35.76% under the official single-run harness. Comparison table, methodology and disclosure: [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Grown, not built
 
