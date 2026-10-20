@@ -109,7 +109,7 @@ Novus 不是从一张架构图开始的。它从一颗种子——一个最小�
 
 ## 基准测试
 
-最新：Terminal-Bench 4.0 上 **40/63（63.5%）**（63 CPU 题，best-of-all-runs + hint 辅助多轮迭代；同一模型 GLM-5.3-flash 官方单次 harness 为 35.76%）——对照表、方法论与诚实口径见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
+最新：Terminal-Bench 4.0 上 **41/63（65.1%）**（63 CPU 题，best-of-all-runs + hint 辅助多轮迭代；同一模型 GLM-5.3-flash 官方单次 harness 为 35.76%）——对照表、方法论与诚实口径见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
 
 ## 哲学
 
