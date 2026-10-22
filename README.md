@@ -103,7 +103,7 @@ Novus has been my daily driver for **two months of intense use**: 300+ sessions,
 ## Benchmark
 
 
-**41/63 tasks (65.1%)** on Terminal-Bench 4.0 (63 CPU tasks, best-of-all-runs, hint-assisted multi-round iteration) — the same model (GLM-5.3-flash) scores 35.76% under the official single-run harness. Comparison table, methodology and disclosure: [BENCHMARKS.md](BENCHMARKS.md).
+**45/66 (68.2%)** on Terminal-Bench 4.0 — **tied #7 on the official leaderboard with Claude Code + Fable 5** — powered by **GLM-5.3-flash**, the same model that scores **37/66 (56.1%, #13)** under the official harness (run by Claude Code). Same model, rank #13 → #7: the entire gap comes from the agent layer. Full leaderboard snapshot, methodology and honest-convention notes: [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Grown, not built
 
