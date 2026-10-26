@@ -36,7 +36,8 @@ function isHtml(contentType: string, body: string): boolean {
 	return false;
 }
 import { fetchUrl, extractArticle, parseFeed, fetchBrowser, type ExtractedArticle, type ParsedFeed } from "../../senses/web.ts";
-import { storeKnowledge, queryKnowledge, knowledgeStats, coreKnowledgeCount, analyzeKnowledgeQuality, pruneEntries, findCompressibleGroups, compressGroup, compressAllKnowledge, flushPendingRefs, storeExperience, recallExperience, experienceStats, extractExperienceFromWorklog, metaMemory, type KnowledgeCategory, type ExperienceEntry, type MetaMemoryReport } from "../../memory/knowledge.ts";
+import { storeKnowledge, queryKnowledge, knowledgeStats, checkThirdPartyPIIViolation, checkSensitiveGovId, coreKnowledgeCount, analyzeKnowledgeQuality, pruneEntries, findCompressibleGroups, compressGroup, compressAllKnowledge, flushPendingRefs, storeExperience, applyVerification, recallExperience, experienceStats, extractExperienceFromWorklog, metaMemory, tokenize, stripSupersededMentions, type KnowledgeCategory, type KnowledgeEntry, type ExperienceEntry, type MetaMemoryReport } from "../../memory/knowledge.ts";
+import { verifyExperience, reconcileWithStore, type VerificationResult, type ReconcileResult, type ReconcileCandidate } from "../../memory/verifier.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { tenantScope } from "../../memory/tenant-context.ts";
@@ -162,18 +163,18 @@ export function createTool(_cwd: string): AgentTool<any> {
 				action: {
 					type: "string",
 					description: "Action: 'fetch', 'learn', 'recall', 'stats', 'analyze', 'prune', 'update' (atomically replace stale topic entries with the new value)",
-					enum: ["fetch", "learn", "recall", "stats", "analyze", "prune", "compress", "experience", "recall-experience", "meta-memory"],
+					enum: ["fetch", "learn", "recall", "stats", "analyze", "prune", "compress", "experience", "recall-experience", "meta-memory", "update"],
 				},
 				url: { type: "string", description: "URL to fetch" },
 				method: { type: "string", description: "HTTP method (default GET)" },
 				headers: { type: "object", description: "HTTP headers" },
 				body: { type: "string", description: "Request body" },
-				content: { type: "string", description: "Knowledge content (for learn)" },
+				content: { type: "string", description: "Knowledge content (for learn); NEW value replacing stale entries (for update)" },
 				source: { type: "string", description: "Source URL or description (for learn)" },
 				tags: { type: "array", items: { type: "string" }, description: "Tags (for learn/recall)" },
 				category: { type: "string", description: "Category: knowledge/preference/fact/self-improvement/business (for learn/recall)" },
 				confidence: { type: "number", description: "Confidence 0-1 (default 0.8)" },
-				query: { type: "string", description: "Search query (for recall)" },
+				query: { type: "string", description: "Search query (for recall); topic keywords to locate stale entries (for update)" },
 				limit: { type: "number", description: "Max results (default 20)" },
 				sortBy: { type: "string", description: "Sort: 'value' (default), 'recent', 'confidence'" },
 				coreOnly: { type: "boolean", description: "Only search core knowledge (default true)" },
@@ -219,7 +220,7 @@ export function createTool(_cwd: string): AgentTool<any> {
 				case "stats":
 					return handleStats();
 				case "experience":
-					return handleStoreExperience(p);
+					return handleStoreExperience(p); // async：写入后独立核验（RSIAgent 机制④⑤）
 				case "recall-experience":
 					return handleRecallExperience(p);
 				case "meta-memory":
@@ -327,9 +328,50 @@ async function handleFetch(p: ConnectParams) {
 	};
 }
 
-function handleLearn(p: ConnectParams) {
+async function handleLearn(p: ConnectParams) {
 	if (!p.content) {
 		return { content: [text("Error: 'content' is required for learn.")], details: {} };
+	}
+
+	// 守卫4 前置：核心证件号不入库（在对账/删旧之前拒绝，避免删了旧值才被拦）
+	const govIdReject = checkSensitiveGovId(p.content);
+	if (govIdReject) {
+		return { content: [text(`Refused: ${govIdReject}`)], details: { guard: "sensitive-gov-id" } };
+	}
+
+	// ── RSIAgent 机制①：写入前对账 ──
+	// 本地 query 同主题旧条目（零 LLM），命中才调对账员判关系。
+	// 禁止"只追加新条目而把被矛盾的旧条目留成事实"（防新旧并存）。
+	const hits = queryKnowledge({ query: p.content, coreOnly: false, limit: 5 });
+	const qTokens = tokenize(p.content);
+	// 长内容 token 多，上限 6 防门槛不可达；纯预筛，真判定在对账员
+	const minOverlap = Math.min(6, Math.max(2, Math.ceil(qTokens.size / 2)));
+	const candidates: ReconcileCandidate[] = hits
+		.filter(h => {
+			if (h.content === p.content) return false; // 完全相同交给重复守卫
+			const hTokens = tokenize(h.content);
+			let ov = 0;
+			for (const qt of qTokens) if (hTokens.has(qt)) ov++;
+			return ov >= minOverlap;
+		})
+		.slice(0, 3)
+		.map(h => ({ id: h.id, content: h.content }));
+
+	let reconciliation: ReconcileResult | undefined;
+	const supersededIds: string[] = [];
+	let backups: typeof hits = [];
+	if (candidates.length > 0) {
+		try {
+			reconciliation = await reconcileWithStore(p.content, candidates);
+			if (reconciliation.relation === "supersede" && reconciliation.targetIds.length > 0) {
+				// 先删旧（避免重复守卫拒相似新值），与 update 动作同款语义；备份待回滚
+				backups = hits.filter(h => reconciliation!.targetIds.includes(h.id));
+				pruneEntries(reconciliation.targetIds);
+				supersededIds.push(...reconciliation.targetIds);
+			}
+		} catch {
+			// fail-open：对账失败不影响写入
+		}
 	}
 
 	const entry = storeKnowledge({
@@ -341,12 +383,28 @@ function handleLearn(p: ConnectParams) {
 	});
 
 	if (!entry) {
-		return { content: [text("Skipped: duplicate or empty content.")], details: {} };
+		// 安全网：supersede 删了旧条目但新值被守卫拒 → 回滚恢复旧条目
+		let restored = 0;
+		if (backups.length) {
+			for (const b of backups) {
+				const r = storeKnowledge({ content: b.content, source: b.source, category: b.category, tags: b.tags, confidence: b.confidence });
+				if (r) restored++;
+			}
+		}
+		const note = restored > 0 ? `（已回滚恢复 ${restored} 条旧条目）` : (supersededIds.length > 0 ? "（注意：旧条目已删且无法恢复）" : "");
+		return { content: [text(`Skipped: duplicate or empty content.${note}`)], details: { reconciliation, superseded: supersededIds, restored } };
+	}
+
+	const lines = [`Stored #${entry.id} | ${entry.category} | ${entry.tags.join(",") || "-"} | ${entry.source}`];
+	if (supersededIds.length > 0 && reconciliation) {
+		lines.push(`♻️ 对账: 自动替换 ${supersededIds.length} 条被矛盾的旧条目（${supersededIds.map(id => "#" + id).join(", ")}）— ${reconciliation.reason}`);
+	} else if (reconciliation?.relation === "duplicate") {
+		lines.push(`⚠️ 对账提示: 与旧条目疑似重复 — ${reconciliation.reason}`);
 	}
 
 	return {
-		content: [text(`Stored #${entry.id} | ${entry.category} | ${entry.tags.join(",") || "-"} | ${entry.source}`)],
-		details: entry,
+		content: [text(lines.join("\n"))],
+		details: { entry, reconciliation, superseded: supersededIds },
 	};
 }
 
@@ -448,41 +506,49 @@ function handleUpdate(p: ConnectParams) {
 
 	// 1. 定位同主题旧条目（queryKnowledge 已按相关性过滤 relevance>0 并排序）
 	const hits = queryKnowledge({ query, coreOnly: false, limit: 10 });
-	// 收紧 stale 判定：queryKnowledge 的 relevance>0 太宽松（如 query="收件地址" 会命中只含"地址正则"的无关条目）。
-	// 只有内容与 query 的 token 重叠达到一定比例的条目才算同主题（用与 queryKnowledge 相同的 tokenize + bigram 逻辑）。
-	const tokenize = (t: string): Set<string> => {
-		const tokens = new Set<string>();
-		const regex = /[a-z0-9]+|[一-鿿㐀-䶿]+/g;
-		let m: RegExpExecArray | null;
-		while ((m = regex.exec(t.toLowerCase())) !== null) {
-			tokens.add(m[0]!);
-			if (m[0]!.length >= 2 && /[一-鿿㐀-䶿]/.test(m[0]!)) {
-				for (let i = 0; i < m[0]!.length - 1; i++) tokens.add(m[0]!.slice(i, i + 2));
-			}
-		}
-		return tokens;
-	};
+	// 收紧 stale 判定（P0，2026-10-26「双线推进战略」四犯误删定案）：queryKnowledge 的 relevance>0 太宽松，
+	// 旧阈值 max(2, ceil(n/2)) 下共享零星关键词（gemma-4/A线/官方分 等 bigram 巧合）的相邻条目也会被判同主题删除。
+	// 双层收紧：
+	//   a) minOverlap = min(n, max(4, ceil(n*0.7)))——高比例 token 重叠才可能同主题；cap 防止短 query（n<6）永不匹配；
+	//   b) 中文 bigram 覆盖率 ≥0.7——位置级主题锚定：同主题条目与 query 共享连续词片链（如「官方分序列」的
+	//      官方/方分/分序/序列 整链），误删条目只有零星 bigram 巧合（如只有「官方分」两片），整链覆盖率低。
 	const qTokens = tokenize(query);
-	const minOverlap = Math.max(2, Math.ceil(qTokens.size / 2));
+	const minOverlap = Math.min(qTokens.size, Math.max(4, Math.ceil(qTokens.size * 0.7)));
+	const qBigrams = [...qTokens].filter(t => t.length === 2 && /[一-鿿㐀-䶿]/.test(t));
 	const stale = hits
 		.filter(h => {
 			if (h.content === newContent) return false;
 			const hTokens = tokenize(h.content);
 			let ov = 0;
 			for (const qt of qTokens) if (hTokens.has(qt)) ov++;
-			return ov >= minOverlap;
+			if (ov < minOverlap) return false;
+			if (qBigrams.length > 0) {
+				let bi = 0;
+				for (const b of qBigrams) if (hTokens.has(b)) bi++;
+				if (bi / qBigrams.length < 0.7) return false;
+			}
+			return true;
 		})
 		.slice(0, 3);
 
 	// 2. 先删旧（避免 isDuplicate 把相似新值拒之门外）
+	// 守卫4 前置：新值为核心证件号 → 直接拒（在 prune 之前拦，旧值不动，无回滚问题）
+	const govIdReject = checkSensitiveGovId(newContent);
+	if (govIdReject) {
+		return { content: [text(`Update FAILED: ${govIdReject}`)], details: { removed: stale, guard: "sensitive-gov-id" } };
+	}
 	let removedCount = 0;
 	if (stale.length > 0) {
 		removedCount = pruneEntries(stale.map(h => h.id)).removed;
 	}
 
-	// 3. 写入新值
+	// 3. 写入新值 —— 先用 stale 条目剥离新值中的旧值原文（handleUpdate 时序：prune 已删旧，
+	// storeKnowledge 内部 findSupersededTargets 扑空，若不预剥则"原'XX'已取消"式复述残留 L0）
+	const cleanedContent = stale.length > 0
+		? stripSupersededMentions(newContent, stale as unknown as KnowledgeEntry[])
+		: newContent;
 	const entry = storeKnowledge({
-		content: newContent,
+		content: cleanedContent,
 		source: p.source ?? "manual-update",
 		category: (p.category as KnowledgeCategory) ?? undefined,
 		tags: p.tags ?? [],
@@ -533,7 +599,7 @@ function handleCompress() {
 		details: { groups: groups.length, totalCompressed, merged: mergedIds.length, mergedIds },
 	};
 }
-function handleStoreExperience(p: ConnectParams) {
+async function handleStoreExperience(p: ConnectParams) {
 	if (!p.title) {
 		return { content: [text("Error: 'title' is required for experience.")], details: {} };
 	}
@@ -550,6 +616,15 @@ function handleStoreExperience(p: ConnectParams) {
 		confidence: p.confidence ?? 0.85,
 	});
 
+	// 独立核验（RSIAgent 机制④⑤）：信息隔离 + fail-open，绝不阻塞写入
+	let verification: VerificationResult | undefined;
+	try {
+		verification = await verifyExperience(entry);
+		applyVerification(entry.id, verification);
+	} catch {
+		// verifyExperience 内部已 fail-open，此处双保险
+	}
+
 	const lines: string[] = [
 		`🧠 情景记忆已存储 #${entry.id}`,
 		`  标题: ${entry.title}`,
@@ -557,8 +632,12 @@ function handleStoreExperience(p: ConnectParams) {
 		`  教训: ${entry.lessons.length > 0 ? entry.lessons.join("; ") : "无"}`,
 		`  标签: ${entry.tags.join(", ")}`,
 	];
+	if (verification) {
+		const icon = verification.status === "verified" ? "✅" : verification.status === "rejected" ? "❌" : "⚠️";
+		lines.push(`  ${icon} 核验: ${verification.status} — ${verification.reason}${verification.model ? ` (${verification.model})` : ""}`);
+	}
 
-	return { content: [text(lines.join("\n"))], details: entry };
+	return { content: [text(lines.join("\n"))], details: { ...entry, verification } };
 }
 
 function handleRecallExperience(p: ConnectParams) {
