@@ -18,25 +18,25 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 | Task-set coverage | 66/66 tasks scored (verifier results for every task, no aborted cases, 100% coverage) |
 | TB-core (legacy benchmark, frozen) | 34/80 = 42.50% (2026-09-29) |
 
-## 2. Official leaderboard (agent + model pairings, 66-task convention)
+## 2. Leaderboard placement (66-task convention; official rows + our equivalent entry)
 
 | Rank | Agent + Model | Best-of-N score |
 |---|---|---|
 | 1 | Claude Code + Opus 5.5 | 52/66 (78.8%) |
 | 1 | Claude Code + Fable 5.1 | 52/66 (78.8%) |
 | 3 | Claude Code + Sonnet 5.5 | 51/66 (77.3%) |
-| 4 | Codex + GPT-6.1 Sol | 49/66 (74.2%) |
-| 4 | Claude Code + Opus 5 | 49/66 (74.2%) |
-| 6 | Codex + GPT-6 Astra | 47/66 (71.2%) |
-| **7 → #4 (equiv.)** | **novus + GLM-5.3-flash (self-run)** | **50/66 (75.8%)\*** (2026-10-27; previous score: 45/66) |
-| 7 | Claude Code + Fable 5 | 45/66 (68.2%) |
-| 9 | Codex + GPT-6 Sol | 44/66 (66.7%) |
-| 10 | Grok Build + Grok 4.7 | 40/66 (60.6%) |
-| 10 | Codex + GPT-5.6 Sol | 40/66 (60.6%) |
-| 12 | Claude Code + GLM-5.3 | 38/66 (57.6%) |
-| 13 | Claude Code + GLM-5.3-flash | 37/66 (56.1%) |
+| **4** | **novus + GLM-5.3-flash (self-run)** | **50/66 (75.8%)\*** (2026-10-27; previous score: 45/66) |
+| 5 | Codex + GPT-6.1 Sol (official #4) | 49/66 (74.2%) |
+| 5 | Claude Code + Opus 5 (official #4) | 49/66 (74.2%) |
+| 7 | Codex + GPT-6 Astra (official #6) | 47/66 (71.2%) |
+| 8 | Claude Code + Fable 5 (official #7) | 45/66 (68.2%) |
+| 9 | Codex + GPT-6 Sol (official #9) | 44/66 (66.7%) |
+| 10 | Grok Build + Grok 4.7 (official #10) | 40/66 (60.6%) |
+| 10 | Codex + GPT-5.6 Sol (official #10) | 40/66 (60.6%) |
+| 12 | Claude Code + GLM-5.3 (official #12) | 38/66 (57.6%) |
+| 13 | Claude Code + GLM-5.3-flash (official #13) | 37/66 (56.1%) |
 
-\* Our number uses the best-of-all-runs + hint-assisted multi-round convention (see §3); the official rows are single-run official harness results, and their best-trial counts are not equivalent to ours. Official rows are as listed on tbench.ai (cross-checked 2026-10-27). Any citation must carry the convention sentence in §6.
+\* Our number uses the best-of-all-runs + hint-assisted multi-round convention (see §3); the official rows are single-run official harness results, and their best-trial counts are not equivalent to ours. Official rows are as listed on tbench.ai (cross-checked 2026-10-27). Ranks renumbered by score after inserting our equivalent entry; official ranks kept in parentheses. Any citation must carry the convention sentence in §6.
 
 ## 3. Methodology statement (three honest notes, before anyone asks)
 
