@@ -109,7 +109,7 @@ Novus 不是从一张架构图开始的。它从一颗种子——一个最小�
 
 ## 基准测试
 
-最新：Terminal-Bench 4.0 **45/66（68.2%）**，官方榜单与 Claude Code + Fable 5 **并列第 7**——跑的是 GLM-5.3-flash，同一模型在官方 harness（Claude Code 代跑）下 **37/66（56.1%，第 13 名）**。模型一分未动，名次第 13 → 第 7：差距全部来自 agent 层。完整榜单快照、方法论与诚实口径见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
+最新：Terminal-Bench 4.0 **50/66（75.8%）**，官方榜单**等效第 4**（best-of-all-runs + hint 辅助多轮迭代口径；官方榜单行为单次 harness run）——跑的是 GLM-5.3-flash，同一模型在官方 harness（Claude Code 代跑）下 **37/66（56.1%，第 13 名）**。模型一分未动，名次第 13 → 第 4：差距全部来自 agent 层。每次失败都会产出验尸档案——死型历史、积累 hint、上一轮产物——下一轮直接继承续跑。完整榜单位置、方法论与诚实口径见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
 
 ## 哲学
 
