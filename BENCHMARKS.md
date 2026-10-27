@@ -3,7 +3,7 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 # Terminal-Bench 4.0 — novus Results & Methodology Notes
 
 > 2026-10-27 · All numbers are computed by the scoring script `tb4_score.py` from the `result.json` of every trial — fully reproducible.
-> One-liner: **The same model (GLM-5.3-Flash) scores 37/66 (56.1%, #13) under the official harness (run by Claude Code); with novus as the agent it scores 50/66 (75.8%), equivalent to #4 on the 2026-10-22 leaderboard snapshot — the entire gap comes from the agent layer, not the model weights.**
+> One-liner: **The same model (GLM-5.3-Flash) scores 37/66 (56.1%, #13) under the official harness (run by Claude Code); with novus as the agent it scores 50/66 (75.8%), equivalent to #4 on the official leaderboard — the entire gap comes from the agent layer, not the model weights.**
 
 ---
 
@@ -11,14 +11,14 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 
 | Convention | Result |
 |---|---|
-| novus (GLM-5.3-Flash, self-run) @ TB4, official 66-task leaderboard convention | **50/66 = 75.8%** (best-of-all-runs; would place #4 on the 2026-10-22 official snapshot) |
+| novus (GLM-5.3-Flash, self-run) @ TB4, official 66-task leaderboard convention | **50/66 = 75.8%** (best-of-all-runs; would place #4 on the official leaderboard) |
 | Same model GLM-5.3-Flash under the official harness (Claude Code) | 37/66 = 56.1%, #13 |
 | Improvement | **+19.7pp (1.35×), rank #13 → #4 (equivalent)** |
 | Local audit convention | 50/64 = 78.1% over the 64 attempted tasks (2 GPU-only tasks cannot run on our hardware: fp8-rmsnorm-gemm, jax-speedrun-gpu; counted unsolved in the /66 denominator) |
 | Task-set coverage | 66/66 tasks scored (verifier results for every task, no aborted cases, 100% coverage) |
 | TB-core (legacy benchmark, frozen) | 34/80 = 42.50% (2026-09-29) |
 
-## 2. Official leaderboard snapshot (2026-10-22, agent + model pairings, 66-task convention)
+## 2. Official leaderboard (agent + model pairings, 66-task convention)
 
 | Rank | Agent + Model | Best-of-N score |
 |---|---|---|
@@ -28,7 +28,7 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 | 4 | Codex + GPT-6.1 Sol | 49/66 (74.2%) |
 | 4 | Claude Code + Opus 5 | 49/66 (74.2%) |
 | 6 | Codex + GPT-6 Astra | 47/66 (71.2%) |
-| **7 → #4 (equiv.)** | **novus + GLM-5.3-flash (self-run)** | **50/66 (75.8%)\*** (2026-10-27; snapshot-time: 45/66) |
+| **7 → #4 (equiv.)** | **novus + GLM-5.3-flash (self-run)** | **50/66 (75.8%)\*** (2026-10-27; previous score: 45/66) |
 | 7 | Claude Code + Fable 5 | 45/66 (68.2%) |
 | 9 | Codex + GPT-6 Sol | 44/66 (66.7%) |
 | 10 | Grok Build + Grok 4.7 | 40/66 (60.6%) |
@@ -36,7 +36,7 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 | 12 | Claude Code + GLM-5.3 | 38/66 (57.6%) |
 | 13 | Claude Code + GLM-5.3-flash | 37/66 (56.1%) |
 
-\* Our number uses the best-of-all-runs + hint-assisted multi-round convention (see §3); the official rows are single-run official harness results, and their best-trial counts are not equivalent to ours. Official rows are quoted from the official leaderboard snapshot. Any citation must carry the convention sentence in §6.
+\* Our number uses the best-of-all-runs + hint-assisted multi-round convention (see §3); the official rows are single-run official harness results, and their best-trial counts are not equivalent to ours. Official rows are as listed on tbench.ai (cross-checked 2026-10-27). Any citation must carry the convention sentence in §6.
 
 ## 3. Methodology statement (three honest notes, before anyone asks)
 
@@ -69,7 +69,7 @@ novus is an **open-source self-evolving agent framework** (github.com/RexHuang/n
 
 ## 6. Cite us with this sentence
 
-> "novus achieves 50/66 (75.8%, equivalent #4 on the 2026-10-22 snapshot) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
+> "novus achieves 50/66 (75.8%, equivalent #4 on the official leaderboard) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
 
 Citing our number without the convention is exactly what this file exists to prevent.
 

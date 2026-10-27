@@ -3,7 +3,7 @@
 # Terminal-Bench 4.0 — novus 成绩与口径说明
 
 > 2026-10-27 · 数字由评分脚本 `tb4_score.py` 从全部 trial 的 `result.json` 现算,可完整复现。
-> 一句话:**同一个模型(GLM-5.3-Flash),官方 harness(Claude Code 代跑)得 37/66(56.1%,第 13 名);换成 novus 得 50/66(75.8%),按 2026-10-22 榜单快照等效第 4——差距全部来自 agent 层,与模型权重无关。**
+> 一句话:**同一个模型(GLM-5.3-Flash),官方 harness(Claude Code 代跑)得 37/66(56.1%,第 13 名);换成 novus 得 50/66(75.8%),按官方榜单等效第 4——差距全部来自 agent 层,与模型权重无关。**
 
 ---
 
@@ -11,14 +11,14 @@
 
 | 口径 | 结果 |
 |---|---|
-| novus(GLM-5.3-Flash 自跑)@ TB4,官方 66 题榜面口径 | **50/66 = 75.8%**(best-of-all-runs;按 2026-10-22 官方快照等效第 4) |
+| novus(GLM-5.3-Flash 自跑)@ TB4,官方 66 题榜面口径 | **50/66 = 75.8%**(best-of-all-runs;按官方榜单等效第 4) |
 | 同模型 GLM-5.3-Flash 官方 harness(Claude Code 代跑) | 37/66 = 56.1%,第 13 名 |
 | 提升 | **+19.7pp(1.35×),名次第 13 → 第 4(等效)** |
 | 本地审计口径 | 50/64 = 78.1%(实际跑 64 题;2 道 GPU-only 题(fp8-rmsnorm-gemm、jax-speedrun-gpu)我们硬件跑不了,在 66 题分母中计为未通过) |
 | 任务集覆盖率 | 66/66 题全部出过 verifier 结果,无死案,覆盖率 100% |
 | TB-core(旧基准,已定版冻结) | 34/80 = 42.50%(2026-09-29) |
 
-## 2. 官方榜单快照(2026-10-22,agent + 模型组合,66 题口径)
+## 2. 官方榜单(agent + 模型组合,66 题口径)
 
 | 名次 | Agent + 模型 | best-of-N 得分 |
 |---|---|---|
@@ -28,7 +28,7 @@
 | 4 | Codex + GPT-6.1 Sol | 49/66 (74.2%) |
 | 4 | Claude Code + Opus 5 | 49/66 (74.2%) |
 | 6 | Codex + GPT-6 Astra | 47/66 (71.2%) |
-| **7 → #4(等效)** | **novus + GLM-5.3-flash(自跑)** | **50/66 (75.8%)\***(2026-10-27;快照时点 45/66) |
+| **7 → #4(等效)** | **novus + GLM-5.3-flash(自跑)** | **50/66 (75.8%)\***(2026-10-27;上一版成绩 45/66) |
 | 7 | Claude Code + Fable 5 | 45/66 (68.2%) |
 | 9 | Codex + GPT-6 Sol | 44/66 (66.7%) |
 | 10 | Grok Build + Grok 4.7 | 40/66 (60.6%) |
@@ -36,7 +36,7 @@
 | 12 | Claude Code + GLM-5.3 | 38/66 (57.6%) |
 | 13 | Claude Code + GLM-5.3-flash | 37/66 (56.1%) |
 
-\* 我们的数字:口径为 best-of-all-runs + hint-assisted 多轮迭代(见第 3 节);官方行为单次官方 harness run,其 best trial 次数与我们并不对等。官方行均引用官方 leaderboard 快照。引用时必须携带第 6 节口径句。
+\* 我们的数字:口径为 best-of-all-runs + hint-assisted 多轮迭代(见第 3 节);官方行为单次官方 harness run,其 best trial 次数与我们并不对等。官方行以 tbench.ai 列表为准(2026-10-27 交叉核对)。引用时必须携带第 6 节口径句。
 
 ## 3. 口径声明(诚实三则,先于任何人质疑)
 
@@ -69,7 +69,7 @@ novus 是一个**开源的 self-evolving agent 框架**(github.com/RexHuang/novu
 
 ## 6. 引用我们时应同时引用
 
-> "novus achieves 50/66 (75.8%, equivalent #4 on the 2026-10-22 snapshot) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
+> "novus achieves 50/66 (75.8%, equivalent #4 on the official leaderboard) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
 
 禁止只引分数不注明口径——这正是本文件存在的原因。
 
