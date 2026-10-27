@@ -102,8 +102,9 @@ Novus has been my daily driver for **two months of intense use**: 300+ sessions,
 
 ## Benchmark
 
+Self-reported: **34/80 tasks (42.50%)** on [Terminal-Bench Core 0.1.1](https://github.com/harbor-framework/terminal-bench) — 80/80 attempted, 186 trials, agent = Novus + GLM-5.3-flash on local Docker. Full per-task table, methodology and disclosure: [docs/benchmark/terminal-bench-core-0.1.1.md](docs/benchmark/terminal-bench-core-0.1.1.md). Not on the official leaderboard — external submissions are not accepted there ([harbor-framework/terminal-bench#1507](https://github.com/harbor-framework/terminal-bench/issues/1507)); independent local run.
 
-**45/66 (68.2%)** on Terminal-Bench 4.0 — **tied #7 on the official leaderboard with Claude Code + Fable 5** — powered by **GLM-5.3-flash**, the same model that scores **37/66 (56.1%, #13)** under the official harness (run by Claude Code). Same model, rank #13 → #7: the entire gap comes from the agent layer. Full leaderboard snapshot, methodology and honest-convention notes: [BENCHMARKS.md](BENCHMARKS.md).
+Self-reported TB4 progress (updated 2026-10-27): **50/66 tasks (75.8%)** on [Terminal-Bench 4](https://www.tbench.ai/news/terminal-bench-4-0) — best-of-all-runs verifier reward, 100% coverage (all 66 tasks attempted), same agent stack (Novus + GLM-5.3-flash). Score still climbing: every failed run feeds a postmortem archive (death-type history + accumulated hints + prior-round artifacts) that the next attempt starts from — the self-evolution flywheel in action.
 
 ## Grown, not built
 
