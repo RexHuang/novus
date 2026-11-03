@@ -103,7 +103,7 @@ Novus has been my daily driver for **two months of intense use**: 300+ sessions,
 ## Benchmark
 
 
-**50/66 (75.8%)** on Terminal-Bench 4.0 — **equivalent to #4 on the official leaderboard snapshot** (best-of-all-runs, hint-assisted multi-round; the official rows are single-run harness results) — powered by **GLM-5.3-flash**, the same model that scores **37/66 (56.1%, #13)** under the official harness (run by Claude Code). Same model, rank #13 → #4: the entire gap comes from the agent layer. Every failed run feeds a postmortem archive — death-type history, accumulated hints, prior-round artifacts — that the next attempt starts from. Full leaderboard snapshot, methodology and honest-convention notes: [BENCHMARKS.md](BENCHMARKS.md).
+**53/66 (80.3%)** on Terminal-Bench 4.0 — **above the #1 row of the official leaderboard snapshot by score** (best-of-all-runs, hint-assisted multi-round; the official rows are single-run harness results) — powered by **GLM-5.3-flash**, the same model that scores **37/66 (56.1%, #13)** under the official harness (run by Claude Code). Same model, rank #13 → #1 by score: the entire gap comes from the agent layer. Every failed run feeds a postmortem archive — death-type history, accumulated hints, prior-round artifacts — that the next attempt starts from. Full leaderboard snapshot, methodology and honest-convention notes: [BENCHMARKS.md](BENCHMARKS.md).
 
 ## Grown, not built
 
