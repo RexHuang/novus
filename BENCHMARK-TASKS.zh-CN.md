@@ -1,3 +1,5 @@
+[English](./BENCHMARK-TASKS.md) | 简体中文
+
 # TB4 Terminal-Bench 4.0 — 题目级 PASS / FAIL 清单
 
 > 快照：**2026-11-05** · 成绩 **55/66 = 83.3%**（best-of-all-runs，hint 辅助多轮迭代口径）

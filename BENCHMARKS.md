@@ -18,7 +18,7 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 | Task-set coverage | 66/66 tasks scored (verifier results for every task, no aborted cases, 100% coverage) |
 | TB-core (legacy benchmark, frozen) | 34/80 = 42.50% (2026-09-29) |
 
-Task-level PASS/FAIL list (all 66 tasks): **[BENCHMARK-TASKS.zh-CN.md](./BENCHMARK-TASKS.zh-CN.md)**
+Task-level PASS/FAIL list (all 66 tasks): **[BENCHMARK-TASKS.md](./BENCHMARK-TASKS.md)** (简体中文: [BENCHMARK-TASKS.zh-CN.md](./BENCHMARK-TASKS.zh-CN.md))
 
 ## 2. Leaderboard placement (66-task convention; sorted by score — our self-run row takes #1, official ranks in parentheses)
 
