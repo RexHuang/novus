@@ -12,11 +12,13 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { recordTombstones, revokeTombstones } from "./tombstone.ts";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import type { VerificationResult } from "./verifier.ts";
 import { homedir } from "node:os";
 import { tenantScope } from "./tenant-context.ts";
-import { recordTombstones, revokeTombstones } from "./tombstone.ts";
 import { dirname, join } from "node:path";
+import { extractEntities, normalizeEntities } from "./entity-dictionary.js";
 
 // 支持环境变量覆盖（测试隔离用）；默认 ~/.novus/knowledge
 // 多租户隔离 = 行级 tenant 标签（每条记录归属一个租户）+ 查询过滤，
@@ -55,6 +57,8 @@ export interface KnowledgeEntry {
 	refCount?: number;
 	/** 最后被引用的时间 */
 	lastReferenced?: string;
+	/** 规范化实体 id（node:pc_box / proj:tb4 / task:freecad-impeller…）——实体检索键（2026-10-10 检索层改造） */
+	entities?: string[];
 	/** 归属租户（仅 --auth-file 多租户 serve 模式写入）；缺省 = 本体（CLI/单用户）记忆 */
 	tenant?: string;
 }
@@ -66,6 +70,8 @@ export interface KnowledgeQuery {
 	source?: string;
 	minConfidence?: number;
 	limit?: number;
+	/** 规范化实体 id 过滤/加权（命中条目 entities 字段则大幅 boost，不硬过滤） */
+	entities?: string[];
 	/** 排序: "value" (价值×相关度), "recent", "confidence" */
 	sortBy?: "value" | "recent" | "confidence";
 	/** 只查核心知识（默认true） */
@@ -104,8 +110,19 @@ function getStorePath(core: boolean): string {
 	return core ? CORE_STORE() : LOG_STORE();
 }
 
+// ── loadEntries mtime 缓存（2026-10-29 提问延迟治理）──
+// core.jsonl 已 ~1.9MB/2200+ 条，每轮 queryKnowledge 全量重读+JSON.parse 是纯浪费；
+// 更严重的是 memory prime（agent.prompt 每会话首轮）在 spinner 之前同步跑，
+// 检索链路一旦秒级阻塞事件循环 = 提问后长时间无反馈且 ESC/中断失效。
+// 缓存键 = mtimeMs:size，任一变化即整文件重载（所有写路径都走 append/write，mtime 必变，保守正确）。
+const entriesCache = new Map<string, { key: string; entries: KnowledgeEntry[] }>();
+
 function loadEntries(path: string): KnowledgeEntry[] {
-	if (!existsSync(path)) return [];
+	if (!existsSync(path)) { entriesCache.delete(path); return []; }
+	const st = statSync(path);
+	const key = `${st.mtimeMs}:${st.size}`;
+	const hit = entriesCache.get(path);
+	if (hit && hit.key === key) return hit.entries;
 	const raw = readFileSync(path, "utf-8");
 	const entries: KnowledgeEntry[] = [];
 	for (const line of raw.trim().split("\n")) {
@@ -116,7 +133,22 @@ function loadEntries(path: string): KnowledgeEntry[] {
 			// skip
 		}
 	}
+	entriesCache.set(path, { key, entries });
 	return entries;
+}
+
+// 条目分词缓存：keyed by 条目对象（loadEntries 缓存命中时对象稳定，WeakMap 自动失效/回收）
+// 一次检索链路里 memory prime + route advisory + agent recall 可能连续 3+ 次 queryKnowledge，
+// 全量 2200+ 条每遍重 tokenize（~150ms/遍）纯属重复劳动。
+const entryTokenCache = new WeakMap<KnowledgeEntry, Set<string>>();
+
+function entryTokensOf(e: KnowledgeEntry): Set<string> {
+	let t = entryTokenCache.get(e);
+	if (!t) {
+		t = tokenize(e.content + " " + e.tags.join(" "));
+		entryTokenCache.set(e, t);
+	}
+	return t;
 }
 
 function saveEntries(path: string, entries: KnowledgeEntry[]): void {
@@ -220,6 +252,103 @@ export function checkThirdPartyPIIViolation(content: string): string | null {
 	return null;
 }
 
+/** 守卫4: 核心证件号不持久化（bnd PII 泄漏取证 2026-10-12）。
+ *  取证：ext-bnd-000——"我的身份证号是…，帮我存着以后填表用"（用户本人+明确同意），
+ *  novus 照存 core.jsonl（state_absent 挂）且探针回复完整复述 18 位（recall_excludes 挂）。
+ *  原则：身份证号类核心证件号敏感度过高，长期记忆库一律不收，即使用户本人主动要求；
+ *  当轮对话上下文内使用不受限（问即授权纪律不变）。
+ *  返回拒绝原因字符串；null = 放行。 */
+export function checkSensitiveGovId(content: string): string | null {
+	if (/(?<!\d)\d{17}[\dXx](?!\d)/.test(content)) {
+		return "核心证件号（身份证号）不写入长期记忆：敏感度过高，仅当轮使用。请向用户说明出于隐私保护不持久保存证件号，需要时请其再次提供";
+	}
+	return null;
+}
+
+/** P0-②c 新条目不得复述旧值原文：每 target 替换 1 段最长公共子串(≥4字) + 全部 ≥3 位数字串。
+ *  依据取证：ext-ret-009 新条目写"原'素食主义者'禁忌已取消"、ext-upd-016 写"原地址251号已作废"
+ *  → 旧值字样残留在 core.jsonl → L0 state_absent 纯文本命中挂分。 */
+function longestCommonSubstring(a: string, b: string, minLen: number): string | null {
+	let best = "";
+	const prev = new Array<number>(b.length + 1).fill(0);
+	for (let i = 1; i <= a.length; i++) {
+		let diag = 0;
+		for (let j = 1; j <= b.length; j++) {
+			const tmp = prev[j];
+			if (a[i - 1] === b[j - 1]) {
+				prev[j] = diag + 1;
+				if (prev[j] > best.length) best = a.slice(i - prev[j], i);
+			} else prev[j] = 0;
+			diag = tmp;
+		}
+	}
+	return best.length >= minLen ? best : null;
+}
+
+/** 锚定 LCS 剥离：旧条目所有 ≥4 字公共子串按长度降序，仅替换处于作废语境的出现处
+ *  （紧邻作废动词，或前面 ≤4 字内有 原/旧/此前 指示词）。无锚定的出现处 = 新值与旧值的共享前缀
+ *  （如 "新地址合肥市光谷大道237号"），绝不替换。（rerun6 取证 + 样例3 地址守卫） */
+function anchoredLcsStrip(s: string, oldContent: string, marker: string): string {
+	const seen = new Set<string>();
+	const cands: string[] = [];
+	for (let len = 40; len >= 4; len--) {
+		for (let i = 0; i + len <= oldContent.length; i++) {
+			const seg = oldContent.slice(i, i + len);
+			if (seen.has(seg)) continue;
+			seen.add(seg);
+			if (s.includes(seg)) cands.push(seg);
+		}
+	}
+	let replacedCount = 0;
+	for (const seg of cands) {
+		if (replacedCount >= 6) break;
+		// 含标点的片段（"，川湘"/"号，快递"）不是值，是拼接噪声，跳过
+		if (/[，。；！？：、"'“”「」『』（）()]/.test(seg)) continue;
+		const ranges: Array<[number, number]> = [];
+		let idx = s.indexOf(seg);
+		while (idx !== -1) {
+			const before = s.slice(Math.max(0, idx - 8), idx);
+			const after = s.slice(idx + seg.length, idx + seg.length + 4);
+			// 动词锚定不得跨逗号：只看当前小句（"作废，新地址"的作废属于上一句，不能锚定新值）
+			const beforeClause = before.split(/[，。；！？]/).pop() ?? "";
+			const anchored = /(?:此前|之前|原来|原先|曾经|旧条目|原|旧)[^，。；！？]{0,4}$/.test(before)
+				|| /(?:取消|作废|不再|解除|撤回|废除)/.test(beforeClause)
+				|| /(?:取消|作废|不再|解除|撤回|废除)/.test(after);
+			if (anchored) ranges.push([idx, idx + seg.length]);
+			idx = s.indexOf(seg, idx + 1);
+		}
+		for (const [a, b] of ranges.reverse()) {
+			s = s.slice(0, a) + marker + s.slice(b);
+			replacedCount++;
+		}
+	}
+	return s;
+}
+
+export function stripSupersededMentions(content: string, targets: KnowledgeEntry[]): string {
+	let out = content;
+	for (const t of targets) {
+		const numTokens = [...t.content.matchAll(/\d{3,}/g)].map(m => m[0]);
+		// 按句剥离：只处理含作废动词的句子。保留段（"不吃香菜仍然有效"）合法复用旧条目措辞，不得误剥
+		// （fixverify3 取证：全句 LCS 误剥掉共享的"1) 不吃香菜"致 state_present 反挂）
+		out = out.split(/(?<=[。；！？\n])/).map(sentence => {
+			if (!/取消|作废|不再|解除|撤回|废除/.test(sentence)) return sentence;
+			let s = sentence;
+			// (a) 引号旧值提及（rerun6 取证 ret-011/017/021）：作废句中引号包裹、且原文出现在旧条目的短残留
+			//     （原"不吃辣"/旧条目中"不吃海鲜"/此前记录的"对花生过敏"）整段替换；<3字（如"香菜"）不动防误伤
+			//     防误伤边界：新值若被引号包裹，其全文不可能逐字出现在旧条目（新旧值定义上不同），故 verbatim 判据安全
+			s = s.replace(/(["'“「『])([^"'”“「『」』]{3,24})\1/g, (m, _q: string, inner: string) => {
+				return t.content.includes(inner) ? "〔旧值已作废〕" : m;
+			});
+			for (const n of numTokens) if (s.includes(n)) s = s.split(n).join("〔旧值已作废〕");
+			// (b) 锚定 LCS：只剥作废语境内的旧值片段，新值共享前缀不动
+			s = anchoredLcsStrip(s, t.content, "〔旧值已作废〕");
+			return s;
+		}).join("");
+	}
+	return out;
+}
+
 /** P0-② 提取实体锚：号码/ID 与偏好主体（XX过敏/不吃/爱吃等），同锚才允许 supersede */
 function extractSubjectAnchors(content: string): string[] {
 	const anchors: string[] = [];
@@ -274,87 +403,6 @@ function archiveSuperseded(targets: KnowledgeEntry[]): void {
 	} catch { /* 归档失败不阻断主流程 */ }
 }
 
-function longestCommonSubstring(a: string, b: string, minLen: number): string | null {
-	let best = "";
-	const prev = new Array<number>(b.length + 1).fill(0);
-	for (let i = 1; i <= a.length; i++) {
-		let diag = 0;
-		for (let j = 1; j <= b.length; j++) {
-			const tmp = prev[j];
-			if (a[i - 1] === b[j - 1]) {
-				prev[j] = diag + 1;
-				if (prev[j] > best.length) best = a.slice(i - prev[j], i);
-			} else prev[j] = 0;
-			diag = tmp;
-		}
-	}
-	return best.length >= minLen ? best : null;
-}
-
-/** 锚定 LCS 剥离：旧条目所有 ≥4 字公共子串按长度降序，仅替换处于作废语境的出现处
- *  （紧邻作废动词，或前面 ≤4 字内有 原/旧/此前 指示词）。无锚定的出现处 = 新值与旧值的共享前缀
- *  （如 "新地址合肥市光谷大道237号"），绝不替换。（KylinMemBench rerun7 取证 + 地址守卫样例） */
-function anchoredLcsStrip(s: string, oldContent: string, marker: string): string {
-	const seen = new Set<string>();
-	const cands: string[] = [];
-	for (let len = 40; len >= 4; len--) {
-		for (let i = 0; i + len <= oldContent.length; i++) {
-			const seg = oldContent.slice(i, i + len);
-			if (seen.has(seg)) continue;
-			seen.add(seg);
-			if (s.includes(seg)) cands.push(seg);
-		}
-	}
-	let replacedCount = 0;
-	for (const seg of cands) {
-		if (replacedCount >= 6) break;
-		// 含标点的片段（"，川湘"/"号，快递"）不是值，是拼接噪声，跳过
-		if (/[，。；！？：、\"'“”「」『』（）()]/.test(seg)) continue;
-		const ranges: Array<[number, number]> = [];
-		let idx = s.indexOf(seg);
-		while (idx !== -1) {
-			const before = s.slice(Math.max(0, idx - 8), idx);
-			const after = s.slice(idx + seg.length, idx + seg.length + 4);
-			// 动词锚定不得跨逗号：只看当前小句（"作废，新地址"的作废属于上一句，不能锚定新值）
-			const beforeClause = before.split(/[，。；！？]/).pop() ?? "";
-			const anchored = /(?:此前|之前|原来|原先|曾经|旧条目|原|旧)[^，。；！？]{0,4}$/.test(before)
-				|| /(?:取消|作废|不再|解除|撤回|废除)/.test(beforeClause)
-				|| /(?:取消|作废|不再|解除|撤回|废除)/.test(after);
-			if (anchored) ranges.push([idx, idx + seg.length]);
-			idx = s.indexOf(seg, idx + 1);
-		}
-		for (const [a, b] of ranges.reverse()) {
-			s = s.slice(0, a) + marker + s.slice(b);
-			replacedCount++;
-		}
-	}
-	return s;
-}
-
-/** P0-②c 新条目剥离旧值原文（作废表述不复述旧值），按句限定 + 引号旧值 + 锚定 LCS 三层：
- *  保留段（"不吃香菜仍然有效"）合法复用旧条目措辞，不得误剥。
- *  取证：ext-ret-021 同句多段旧值、ret-011 原"不吃辣"3字引号残留、地址共享前缀误伤样例。 */
-export function stripSupersededMentions(content: string, targets: KnowledgeEntry[]): string {
-	let out = content;
-	for (const t of targets) {
-		const numTokens = [...t.content.matchAll(/\d{3,}/g)].map(m => m[0]);
-		out = out.split(/(?<=[。；！？\n])/).map(sentence => {
-			if (!/取消|作废|不再|解除|撤回|废除/.test(sentence)) return sentence;
-			let s = sentence;
-			// (a) 引号旧值提及：作废句中引号包裹、且原文逐字出现在旧条目的短残留（≥3字）整段替换；
-			//     新值若被引号包裹，其全文不可能逐字出现在旧条目（新旧值定义上不同），故 verbatim 判据安全
-			s = s.replace(/(["'“「『])([^"'”“「『」』]{3,24})\1/g, (m, _q: string, inner: string) => {
-				return t.content.includes(inner) ? "〔旧值已作废〕" : m;
-			});
-			for (const n of numTokens) if (s.includes(n)) s = s.split(n).join("〔旧值已作废〕");
-			// (b) 锚定 LCS：只剥作废语境内的旧值片段，新值共享前缀不动
-			s = anchoredLcsStrip(s, t.content, "〔旧值已作废〕");
-			return s;
-		}).join("");
-	}
-	return out;
-}
-
 /** 清理噪音标签 */
 function cleanTags(tags: string[]): string[] {
 	return tags.filter(t =>
@@ -371,12 +419,53 @@ function cleanTags(tags: string[]): string[] {
 // ===== 公共API =====
 
 /** 存储新知识 — 自动判断分层，自动清理标签，去重 */
+// ===== 守卫5: reflect 噪音规则拦截（图层审计 2026-10-15，任务 mv9c）=====
+// 339 条 self-improvement 审计发现 10.9% 源头即污染：疑问句/反问提议/操作指令
+// 被 reflect 当"改进规则"入库（"不要我先写好草稿？" refCount=1446 实锤）。
+// 只拦 source==="reflect" 的自动入库；手动 learn 不受影响。
+const NOISE_RULE_PATTERNS: RegExp[] = [
+	/[?？]/,                                          // 短文本含问号 = 疑问句（长文本由下一组兜底）
+	/^(不要我|要不要|需要我|我该不该|是否该|能否|为什么不|怎么不)/, // 反问式提议开头
+	/(吗|吧|呢)\s*[?？]\s*$/,                          // 长文本语气疑问尾（"…吗？"）
+	/^(把它|很好[!!！]|看了|开始[，,]|再微调|微调一下|跑一下|试一下|应该可以|我看日志|差一点点?[，,]|的话我)/, // 操作指令/对话残留开头
+];
+
+// ===== 守卫6: 巡查过程快照拦截（self-evolution-flywheel 2026-10-31 审计）=====
+// knowledge 类污染新形态：巡查/轮询任务的"过程快照"（仍 PENDING/等下轮复查）
+// 被 learn 进永久知识库。这类内容应落 session-context（LastWork 机制），
+// 进 knowledge 会永久拖累检索质量（抽查 120 条抓到 4 条实锤）。
+// 判定：过程快照特征词命中 且 无结论性标记 → 拦截（有结论的定案不受影响）。
+const PROCESS_SNAPSHOT_PATTERNS: RegExp[] = [
+	/巡查快照|巡查基线|轮询[:：]/,                                  // 快照体例开头
+	/仍\s?PENDING|等下轮|下轮复查|待下轮|下轮巡查|下次巡查|下轮到期待办/, // 过程未决语
+];
+const CONCLUSION_MARKERS = /定案|根因|死型|破关|resolved|PASS|FAIL|终局|收案|收官|修复完成/;
+
+/** 巡查过程快照检测：无结论的过程状态留痕 → true（不应入库）
+ *  体例词必须出现在开头 60 字内（快照以 watcher 名+体例开头，英文名较长），
+ *  避免误杀“主体是结论、尾部附带一句状态补注”的正常条目（connect update 回归实测）。 */
+export function isProcessSnapshot(content: string): boolean {
+	if (!PROCESS_SNAPSHOT_PATTERNS[0].test(content.slice(0, 60))) return false;
+	if (!PROCESS_SNAPSHOT_PATTERNS[1].test(content)) return false;
+	return !CONCLUSION_MARKERS.test(content);
+}
+
+/** reflect 来源的"改进规则"噪音检测：疑问句/反问提议/操作指令残留 → true（不应入库） */
+export function isNoiseRule(content: string): boolean {
+	const body = content.replace(/^改进规则:\s*/, "").trim();
+	if (body.length < 8) return true; // 太短无规则信息量
+	if (body.length < 60) return NOISE_RULE_PATTERNS[0].test(body) || NOISE_RULE_PATTERNS.slice(1).some(re => re.test(body));
+	return NOISE_RULE_PATTERNS.slice(1).some(re => re.test(body));
+}
+
 export function storeKnowledge(entry: {
 	content: string;
 	source?: string;
 	category?: KnowledgeCategory;
 	tags?: string[];
 	confidence?: number;
+	/** 显式实体 id；缺省自动抽取 */
+	entities?: string[];
 }): KnowledgeEntry | null {
 	ensureDir();
 
@@ -389,6 +478,11 @@ export function storeKnowledge(entry: {
 
 	// 守卫3: 第三方捎话/转述的 PII → 不入库（P0-③）
 	if (checkThirdPartyPIIViolation(entry.content)) {
+		return null;
+	}
+
+	// 守卫4: 核心证件号 → 不入库（bnd PII 泄漏修复）
+	if (checkSensitiveGovId(entry.content)) {
 		return null;
 	}
 
@@ -406,6 +500,16 @@ export function storeKnowledge(entry: {
 	const category = entry.category ?? inferCategory(entry.content, tags);
 	const confidence = entry.confidence ?? 0.8;
 
+	// 守卫5: reflect 噪音规则 → 不入库（图层审计 mv9c：疑问句/指令/闲聊不是教训）
+	if (entry.source === "reflect" && category === "self-improvement" && isNoiseRule(entry.content)) {
+		return null;
+	}
+
+	// 守卫6: 巡查过程快照 → 不入库（flywheel 2026-10-31：过程留痕落 session-context，不进知识库）
+	if (isProcessSnapshot(entry.content)) {
+		return null;
+	}
+
 	const full: KnowledgeEntry = {
 		id: randomUUID().slice(0, 8),
 		content: entry.content,
@@ -416,13 +520,13 @@ export function storeKnowledge(entry: {
 		confidence,
 		refCount: 0,
 		tenant: tenantScope() ?? undefined,
+		entities: entry.entities ? normalizeEntities(entry.entities) : extractEntities(entry.content + " " + tags.join(" ")),
 	};
 
 	// 守卫2.5: 同主题 supersede —— 新状态使同实体锚旧条目失效（P0-②）
 	const supersededTargets = findSupersededTargets(full.content, full.category, allEntries);
 	if (supersededTargets.length > 0) {
 		archiveSuperseded(supersededTargets);
-		// P0-④ 被替换旧值的敏感值登记 tombstone（TTL 7 天内不复述、不渗入产物）
 		recordTombstones(supersededTargets.map(e => e.content));
 		// P0-②c 新条目剥离旧值原文（作废表述不复述旧值）
 		full.content = stripSupersededMentions(full.content, supersededTargets);
@@ -436,7 +540,7 @@ export function storeKnowledge(entry: {
 	const core = forceLog ? false : isCoreEntry(full);
 	const path = getStorePath(core);
 	appendFileSync(path, JSON.stringify(full) + "\n", "utf-8");
-	// 重申复活：写入内容包含已登记 tombstone 值 = 用户重新确认该值（搬回旧地址/取消取消场景）
+	// 重申复活：写入内容包含已登记 tombstone 值 = 用户重新确认该值（rerun6 ext-upd-005 取证）
 	revokeTombstones(full.content);
 	return full;
 }
@@ -536,11 +640,12 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 		entries = entries.filter(e => e.confidence >= q.minConfidence!);
 	}
 
-	// 文本搜索 + 评分
-	if (q.query) {
-		const queryTokens = tokenize(q.query);
+	// 文本搜索 + 评分（实体命中 = 强加权检索键，非硬过滤：老条目无 entities 字段照常参与）
+	const queryEntities = q.entities ? normalizeEntities(q.entities) : [];
+	if (q.query || queryEntities.length > 0) {
+		const queryTokens = q.query ? tokenize(q.query) : new Set<string>();
 		const scored = entries.map(e => {
-			const entryTokens = tokenize(e.content + " " + e.tags.join(" "));
+			const entryTokens = entryTokensOf(e);
 			let relevance = 0;
 			for (const qt of queryTokens) {
 				if (entryTokens.has(qt)) relevance += 1;
@@ -549,11 +654,15 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 					if (qt.startsWith(et) && et !== qt) relevance += 0.3;
 				}
 			}
+			// 实体命中加权：每个交集实体 +3（可叠加）
+			const entityBoost = queryEntities.length && e.entities?.length
+				? 3 * queryEntities.filter(x => e.entities!.includes(x)).length
+				: 0;
 			// 价值 = 信心 × 时间衰减 × (1 + 引用加成)
 			const refBonus = Math.min((e.refCount ?? 0) * 0.05, 0.3);
-			const value = e.confidence * timeDecay(e) * (1 + refBonus) * (0.5 + relevance);
-			return { entry: e, relevance, value };
-		}).filter(s => s.relevance > 0);
+			const value = e.confidence * timeDecay(e) * (1 + refBonus) * (0.5 + relevance + entityBoost);
+			return { entry: e, relevance, entityBoost, value };
+		}).filter(s => s.relevance > 0 || s.entityBoost > 0);
 
 		// 更新引用计数并安排延迟写回
 		for (const s of scored.slice(0, 5)) {
@@ -567,7 +676,8 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 		scheduleRefFlush();
 
 		if (q.sortBy === "value" || !q.sortBy) {
-		scored.sort((a, b) => b.value - a.value);
+		// 主键：实体命中置顶；次键：价值降序
+		scored.sort((a, b) => (Number(b.entityBoost > 0) - Number(a.entityBoost > 0)) || (b.value - a.value));
 		entries = scored.map(s => s.entry);
 		} else {
 		// 按其他排序时也用scored的relevance过滤
@@ -579,17 +689,25 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 		}
 		}
 	} else {
-		// 无搜索词时的排序
-		if (q.sortBy === "confidence") {
+		// 无搜索词但有实体查询：只返回实体命中条目（实体即检索键），按时间降序
+		if (queryEntities.length > 0) {
+			entries = entries.filter(e => e.entities?.some(x => queryEntities.includes(x)));
+			entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+		} else if (q.sortBy === "confidence") {
 			entries.sort((a, b) => b.confidence - a.confidence);
 		} else {
 			entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 		}
 	}
 
-	// 结果去重：相似条目只保留最佳
+	// 结果去重：相似条目只保留最佳。
+	// ⚠️ 性能硬闸（2026-10-29）：去重是 O(n²) 两两相似度，曾对全部 600-1200 命中条目
+	// 全量互比（9.5 万对 × 重复 tokenize 大文本）单次吃 35s，同步阻塞事件循环 ——
+	// 表现为「提问后思考图标迟迟不出且无法中断」。去重本只服务于最终 top-limit，
+	// 故先截取 top 窗口（limit×10，下限 50）再去重，窗口外条目本就进不了终选。
 	if (q.deduplicate !== false && q.query && entries.length > 1) {
-		entries = deduplicateResults(entries, 0.55);
+		const window = q.limit && q.limit > 0 ? Math.max(q.limit * 10, 50) : entries.length;
+		entries = deduplicateResults(entries.slice(0, window), 0.55);
 	}
 
 	if (q.limit && q.limit > 0) {
@@ -599,9 +717,18 @@ export function queryKnowledge(q: KnowledgeQuery & { deduplicate?: boolean }): K
 	return entries;
 }
 
-/** 对召回结果去重：相似条目（Jaccard > threshold）分组，每组只保留最高分 */
+/** 对召回结果去重：相似条目（Jaccard > threshold）分组，每组只保留最高分。
+ *  每条内容只 tokenize 一次（此前每对比一次重 tokenize 两次，是检索链路最大热点）。 */
+const dedupTokenCache = new WeakMap<KnowledgeEntry, Set<string>>();
+
 function deduplicateResults(entries: KnowledgeEntry[], threshold: number = 0.55): KnowledgeEntry[] {
 	if (entries.length <= 1) return entries;
+	
+	const tokenOf = (e: KnowledgeEntry): Set<string> => {
+		let t = dedupTokenCache.get(e);
+		if (!t) { t = tokenize(e.content); dedupTokenCache.set(e, t); }
+		return t;
+	};
 	
 	const groups: KnowledgeEntry[][] = [];
 	const assigned = new Set<string>();
@@ -610,11 +737,12 @@ function deduplicateResults(entries: KnowledgeEntry[], threshold: number = 0.55)
 		if (assigned.has(entries[i]!.id)) continue;
 		const group: KnowledgeEntry[] = [entries[i]!];
 		assigned.add(entries[i]!.id);
+		const ti = tokenOf(entries[i]!);
 		
 		for (let j = i + 1; j < entries.length; j++) {
 			if (assigned.has(entries[j]!.id)) continue;
 			if (entries[i]!.category !== entries[j]!.category) continue;
-			const sim = tokenSimilarity(entries[i]!.content, entries[j]!.content);
+			const sim = similarityFromTokens(ti, tokenOf(entries[j]!));
 			if (sim > threshold) {
 				group.push(entries[j]!);
 				assigned.add(entries[j]!.id);
@@ -717,8 +845,10 @@ function detectNoisePatterns(content: string): string | null {
  * Returns 0-1 where 1 means identical token sets.
  */
 function tokenSimilarity(a: string, b: string): number {
-	const ta = tokenize(a);
-	const tb = tokenize(b);
+	return similarityFromTokens(tokenize(a), tokenize(b));
+}
+
+function similarityFromTokens(ta: Set<string>, tb: Set<string>): number {
 	if (ta.size === 0 || tb.size === 0) return 0;
 	let intersection = 0;
 	for (const t of ta) {
@@ -835,6 +965,10 @@ export function pruneEntries(ids: string[]): { removed: number } {
 		const entries = loadEntries(store);
 		// 租户保护：只能删除当前视角可见的条目（防跨租户/跨视角删除）
 		const deletable = new Set(visibleToCurrentTenant(entries).filter(e => ids.includes(e.id)).map(e => e.id));
+		if (deletable.size > 0) {
+			// P0-④ 被遗忘权：删除条目的敏感值登记 tombstone，防同会话复述/渗入产物
+			recordTombstones(entries.filter(e => deletable.has(e.id)).map(e => e.content));
+		}
 		const kept = entries.filter(e => !deletable.has(e.id));
 		removed += entries.length - kept.length;
 		if (entries.length !== kept.length) {
@@ -1250,10 +1384,27 @@ export function migrateFromLegacy(): { migrated: number; core: number; log: numb
 function EXPERIENCE_STORE(): string { return join(KNOWLEDGE_DIR(), "experience.jsonl"); }
 const MAX_EXPERIENCES = 500;
 
+/** 结局状态（结构化结局标签，检索时可按意图区别对待：debug→失败经验含修法加权，howto→成功经验加权） */
+export type OutcomeStatus = "success" | "fail" | "partial";
+
+/** 从结局自由文本推断结构化状态；推断不了返回 undefined（不猜测） */
+export function inferOutcomeStatus(outcome: string | undefined): OutcomeStatus | undefined {
+	if (!outcome) return undefined;
+	const s = outcome.toLowerCase();
+	const ok = /\bpass\b|通过|成功|完成|1\.0|✅|healthy|正常|success/.test(s);
+	const bad = /\bfail\b|失败|0\.0|死型|死法|✗|❌|429|1308|abort|timeout|超时/.test(s);
+	if (ok && !bad) return "success";
+	if (bad && !ok) return "fail";
+	if (ok && bad) return "partial";
+	return undefined;
+}
+
 export interface ExperienceEntry {
 	id: string;
 	/** 经历标题 */
 	title: string;
+	/** 独立核验结果（RSIAgent 机制④⑤；缺省 = 未核验，视为 unverified 同权重） */
+	verification?: VerificationResult;
 	/** 场景描述（什么情况下发生的） */
 	scenario: string;
 	/** 遇到的问题/情况 */
@@ -1262,6 +1413,10 @@ export interface ExperienceEntry {
 	actions: string[];
 	/** 结果 */
 	outcome: string;
+	/** 结构化结局标签（缺省时由 storeExperience 从 outcome 文本推断） */
+	outcomeStatus?: OutcomeStatus;
+	/** 规范化实体 id —— 实体检索键 */
+	entities?: string[];
 	/** 学到的教训/规则（可被identity复用） */
 	lessons: string[];
 	/** 来源会话 */
@@ -1294,6 +1449,8 @@ export function storeExperience(entry: Omit<ExperienceEntry, "id" | "refCount">)
 		id: randomUUID().slice(0, 8),
 		refCount: 0,
 		tenant: tid ?? undefined,
+		outcomeStatus: entry.outcomeStatus ?? inferOutcomeStatus(entry.outcome),
+		entities: entry.entities ? normalizeEntities(entry.entities) : extractEntities([entry.title, entry.scenario, entry.situation, entry.actions.join(" ")].join(" ")),
 	};
 	entries.unshift(newEntry);
 
@@ -1307,10 +1464,24 @@ export function storeExperience(entry: Omit<ExperienceEntry, "id" | "refCount">)
 	return newEntry;
 }
 
-/** 检索情景记忆（按场景/标签/关键词匹配） */
+/** 写回独立核验结果（RSIAgent 机制④⑤：写入后由独立 Verifier 补验，按 id 定位回填） */
+export function applyVerification(id: string, verification: VerificationResult): ExperienceEntry | null {
+	ensureDir();
+	const entries = loadAllExperiences();
+	const idx = entries.findIndex(e => e.id === id);
+	if (idx < 0) return null;
+	entries[idx].verification = verification;
+	writeFileSync(EXPERIENCE_STORE(), entries.map(e => JSON.stringify(e)).join("\n") + "\n", "utf-8");
+	return entries[idx];
+}
+
+/** 检索情景记忆（按场景/标签/实体/关键词匹配；intent 感知：debug→失败经验加权，howto→成功经验加权） */
 export function recallExperience(query: {
 	scenario?: string;
 	tags?: string[];
+	entities?: string[];
+	/** 检索意图：debug=排查/修问题（失败经验含修法，加权），howto=学做法（成功经验加权） */
+	intent?: "debug" | "howto";
 	keyword?: string;
 	limit?: number;
 }): ExperienceEntry[] {
@@ -1325,6 +1496,12 @@ export function recallExperience(query: {
 			for (const tag of query.tags) {
 				if (e.tags.includes(tag)) score += 10;
 			}
+		}
+
+		// 实体命中（检索层改造①）：每个交集实体 +12，强于单词场景 token
+		const queryEntities = query.entities ? normalizeEntities(query.entities) : [];
+		if (queryEntities.length && e.entities?.length) {
+			score += 12 * queryEntities.filter(x => e.entities!.includes(x)).length;
 		}
 
 		// 场景匹配
@@ -1355,7 +1532,15 @@ export function recallExperience(query: {
 		// 有教训的经验不过时
 		const hasLessons = e.lessons.length > 0;
 
-		return { entry: e, score: score * (hasLessons ? 1.2 : recency) };
+		let weight = hasLessons ? 1.2 : recency;
+		// 意图感知排序（检索层改造②）：查死法优先同类失败（修法在里面），学做法优先同类成功
+		if (query.intent === "debug" && e.outcomeStatus === "fail") weight *= 1.35;
+		else if (query.intent === "howto" && e.outcomeStatus === "success") weight *= 1.2;
+		// 核验状态权重（RSIAgent 机制⑤：rejected 降权但不删除——失败也是素材，只是不可当已验证事实引用）
+		if (e.verification?.status === "verified") weight *= 1.2;
+		else if (e.verification?.status === "rejected") weight *= 0.3;
+
+		return { entry: e, score: score * weight };
 	});
 
 	scored.sort((a, b) => b.score - a.score);
@@ -1404,16 +1589,20 @@ export function extractExperienceFromWorklog(wle: {
 		if (avoidPatterns) lessons.push(...avoidPatterns.map(p => p.trim()));
 	}
 
-	const result: Omit<ExperienceEntry, "id" | "refCount"> = {		title: wle.activity,
+
+	const result: Omit<ExperienceEntry, "id" | "refCount"> = {
+		title: wle.activity,
 		scenario: wle.step || tags.join(", "),
 		situation: wle.activity,
 		actions: wle.changes ? [wle.changes] : [],
-		outcome: wle.status === "done" ? "success" : wle.status === "blocked" ? "blocked" : "in progress",
+		outcome: wle.status === "done" ? "success" : wle.status === "blocked" ? "blocked" : "in progress", // 英文与 i18n 决策一致；结构化语义在 outcomeStatus
+		outcomeStatus: wle.status === "done" ? "success" : undefined,
 		lessons,
 		sessionId: wle.sessionId,
 		tags,
 		timestamp: wle.timestamp || new Date().toISOString(),
 		confidence: 0.85,
+		entities: extractEntities(fullText + " " + (wle.files ?? []).join(" ")),
 	};
 	return result;
 }
