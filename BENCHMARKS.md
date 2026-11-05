@@ -2,7 +2,7 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 
 # Terminal-Bench 4.0 — novus Results & Methodology Notes
 
-> 2026-11-04 · All numbers are computed by the scoring script `tb4_score.py` from the `result.json` of every trial — fully reproducible.
+> 2026-11-05 · All numbers are computed by the scoring script `tb4_score.py` from the `result.json` of every trial — fully reproducible.
 > One-liner: **The same model (GLM-5.3-Flash) scores 37/66 (56.1%, #13) under the official harness (run by Claude Code); with novus as the agent it scores 55/66 (83.3%), above the #1 row (52/66, Claude Code+Opus 5.5) by score — the entire gap comes from the agent layer, not the model weights.**
 
 ---
@@ -17,6 +17,8 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 | Local audit convention | 50/64 = 78.1% over the 64 attempted tasks (2 GPU-only tasks cannot run on our hardware: fp8-rmsnorm-gemm, jax-speedrun-gpu; counted unsolved in the /66 denominator) |
 | Task-set coverage | 66/66 tasks scored (verifier results for every task, no aborted cases, 100% coverage) |
 | TB-core (legacy benchmark, frozen) | 34/80 = 42.50% (2026-09-29) |
+
+Task-level PASS/FAIL list (all 66 tasks): **[BENCHMARK-TASKS.zh-CN.md](./BENCHMARK-TASKS.zh-CN.md)**
 
 ## 2. Leaderboard placement (66-task convention; sorted by score — our self-run row takes #1, official ranks in parentheses)
 

@@ -2,7 +2,7 @@
 
 # Terminal-Bench 4.0 — novus 成绩与口径说明
 
-> 2026-11-04 · 数字由评分脚本 `tb4_score.py` 从全部 trial 的 `result.json` 现算,可完整复现。
+> 2026-11-05 · 数字由评分脚本 `tb4_score.py` 从全部 trial 的 `result.json` 现算,可完整复现。
 > 一句话:**同一个模型(GLM-5.3-Flash),官方 harness(Claude Code 代跑)得 37/66(56.1%,第 13 名);换成 novus 得 55/66(83.3%),按分数已超官方榜首行(52/66,Claude Code+Opus 5.5)——差距全部来自 agent 层,与模型权重无关。**
 
 ---
@@ -17,6 +17,8 @@
 | 本地审计口径 | 55/64 = 85.9%(实际跑 64 题;2 道 GPU-only 题(fp8-rmsnorm-gemm、jax-speedrun-gpu)我们硬件跑不了,在 66 题分母中计为未通过) |
 | 任务集覆盖率 | 66/66 题全部出过 verifier 结果,无死案,覆盖率 100% |
 | TB-core(旧基准,已定版冻结) | 34/80 = 42.50%(2026-09-29) |
+
+题目级 PASS/FAIL 清单(全部 66 题):**[BENCHMARK-TASKS.zh-CN.md](./BENCHMARK-TASKS.zh-CN.md)**
 
 ## 2. 榜单位置(66 题口径;按分数排序——novus 自跑行列第 1,括号为官方原名次)
 
