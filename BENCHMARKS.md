@@ -13,7 +13,7 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 |---|---|
 | novus (GLM-5.3-Flash, self-run) @ TB4, official 66-task leaderboard convention | **54/66 = 81.8%** (best-of-all-runs; above the #1 row of the official snapshot by score) |
 | Same model GLM-5.3-Flash under the official harness (Claude Code) | 37/66 = 56.1%, #13 |
-| Improvement | **+27.2pp (1.48×), rank #13 → #1 (by score)** |
+| Improvement | **+25.7pp (1.46×), rank #13 → #1 (by score)** |
 | Local audit convention | 54/64 = 84.4% over the 64 attempted tasks (2 GPU-tagged tasks cannot produce valid scored runs on our GPU-less hardware: fp8-rmsnorm-gemm, jax-speedrun-gpu; counted unsolved in the /66 denominator) |
 | Task-set coverage | 65/66 tasks with verifier results (98.5%); fp8-rmsnorm-gemm (GPU-only) has no result |
 | TB-core (legacy benchmark, frozen) | 34/80 = 42.50% (2026-09-29) |
@@ -42,7 +42,7 @@ Task-level PASS/FAIL list (all 66 tasks): **[BENCHMARK-TASKS.md](./BENCHMARK-TAS
 
 ## 3. Methodology statement (three honest notes, before anyone asks)
 
-**① Denominator: the official 66-task leaderboard convention.** The official leaderboard rows are scored over the full 66-task set. novus attempted 64 of the 66 tasks; 2 GPU-tagged tasks (fp8-rmsnorm-gemm, jax-speedrun-gpu) cannot produce valid scored runs on our GPU-less hardware and count as unsolved in the 66-task denominator. Equivalently, 54/64 = 84.4% over the attempted set — we quote 55/66 to align with the official rows.
+**① Denominator: the official 66-task leaderboard convention.** The official leaderboard rows are scored over the full 66-task set. novus attempted 64 of the 66 tasks; 2 GPU-tagged tasks (fp8-rmsnorm-gemm, jax-speedrun-gpu) cannot produce valid scored runs on our GPU-less hardware and count as unsolved in the 66-task denominator. Equivalently, 54/64 = 84.4% over the attempted set — we quote 54/66 to align with the official rows.
 
 **② Multi-round iteration: the overwhelming majority of the 54 PASSes come from the post-mortem → hint → refire flywheel.**
 - First full bare run (tb4-full-novus, 2026-09-30): only 1 PASS. In the earlier 40-PASS cut, 1 came from the first run and 49 from targeted refire lanes. The raw first-run percentage is **not a capability baseline**: most first-round failures were engineering failures (environment, rate limiting, truncation), not capability ceilings.
@@ -82,7 +82,7 @@ All 9 are **excluded from the score**. Raw best-of-all-runs before the audit was
 
 This section exists so the number can be cited with full provenance. Any citation must use the audited figure.
 
-> "novus achieves 55/66 (83.3%, above the #1 row of the official snapshot by score) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
+> "novus achieves 54/66 (81.8%, above the #1 row of the official snapshot by score) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
 
 Citing our number without the convention is exactly what this file exists to prevent.
 

@@ -13,7 +13,7 @@
 |---|---|
 | novus(GLM-5.3-Flash 自跑)@ TB4,官方 66 题榜面口径 | **54/66 = 81.8%**(best-of-all-runs;按分数已超官方榜首行) |
 | 同模型 GLM-5.3-Flash 官方 harness(Claude Code 代跑) | 37/66 = 56.1%,第 13 名 |
-| 提升 | **+27.2pp(1.48×),名次第 13 → 按分数第 1** |
+| 提升 | **+25.7pp(1.46×),名次第 13 → 按分数第 1** |
 | 本地审计口径 | 54/64 = 84.4%(实际跑 64 题;2 道 GPU 题(fp8-rmsnorm-gemm、jax-speedrun-gpu)在我们无 GPU 的硬件上产不出有效评分 run,在 66 题分母中计为未通过) |
 | 任务集覆盖率 | 65/66 题出过 verifier 结果(覆盖率 98.5%);fp8-rmsnorm-gemm(GPU-only)无 result |
 | TB-core(旧基准,已定版冻结) | 34/80 = 42.50%(2026-09-29) |
@@ -42,7 +42,7 @@
 
 ## 3. 口径声明(诚实三则,先于任何人质疑)
 
-**① 分母:官方 66 题榜面口径。** 官方榜单各行按全部 66 题计分。novus 实际跑了 66 题中的 64 题;2 道 GPU 题(fp8-rmsnorm-gemm、jax-speedrun-gpu)在我们无 GPU 的硬件上产不出有效评分 run,在 66 题分母中计为未通过。等价地,在实跑集合上为 54/64 = 84.4%——对外引 55/66 是为了与官方行对齐。
+**① 分母:官方 66 题榜面口径。** 官方榜单各行按全部 66 题计分。novus 实际跑了 66 题中的 64 题;2 道 GPU 题(fp8-rmsnorm-gemm、jax-speedrun-gpu)在我们无 GPU 的硬件上产不出有效评分 run,在 66 题分母中计为未通过。等价地,在实跑集合上为 54/64 = 84.4%——对外引 54/66 是为了与官方行对齐。
 
 **② 多轮迭代:54 个 PASS 的绝大多数来自"失败尸检 → hint → 重发"飞轮。**
 - 首轮全量裸跑(tb4-full-novus,2026-09-30):仅 1 题 PASS。在早先 40 PASS 的切片中,1 个来自首轮、49 个来自定向重发路。首轮百分比**不是能力基线**:首轮大量失败死于环境/限流/截断等工程故障,而非能力上限。
@@ -82,7 +82,7 @@ novus 是一个**开源的 self-evolving agent 框架**(github.com/RexHuang/novu
 
 本节存在的意义是让这个数字可以带完整来源地被引用。任何引用必须使用审计后数字。
 
-> "novus achieves 55/66 (83.3%, above the #1 row of the official snapshot by score) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
+> "novus achieves 54/66 (81.8%, above the #1 row of the official snapshot by score) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
 
 禁止只引分数不注明口径——这正是本文件存在的原因。
 
