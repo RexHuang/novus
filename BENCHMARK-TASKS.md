@@ -2,7 +2,7 @@
 
 # TB4 Terminal-Bench 4.0 — Task-Level PASS / FAIL List
 
-> Snapshot: **2026-11-05** · Score **55/66 = 83.3%** (best-of-all-runs, hint-assisted multi-round convention)
+> Snapshot: **2026-11-09 (audited)** · Score **54/66 = 81.8%** (the 2026-11-05 snapshot was 55/66; 9 runs were excluded by the contamination audit — see [BENCHMARKS.md](./BENCHMARKS.md). The table below is the historical 11-05 snapshot; 5 in-table PASSes were re-classified by the audit, which is authoritative.)
 > Denominator = the official 66-task set; 65 tasks have verifier results (98.5% coverage), 1 task (GPU-only) has no result.
 > Convention & methodology: see [BENCHMARKS.md](./BENCHMARKS.md) (简体中文: [BENCHMARKS.zh-CN.md](./BENCHMARKS.zh-CN.md)).
 

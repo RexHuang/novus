@@ -109,7 +109,7 @@ Novus 不是从一张架构图开始的。它从一颗种子——一个最小�
 
 ## 基准测试
 
-最新：Terminal-Bench 4.0 **55/66（83.3%）**，按分数**已超官方榜首行（52/66，Claude Code+Opus 5.5）**（best-of-all-runs + hint 辅助多轮迭代口径；官方榜单行为单次 harness run）——跑的是 GLM-5.3-flash，同一模型在官方 harness（Claude Code 代跑）下 **37/66（56.1%，第 13 名）**。模型一分未动，名次第 13 → 按分数第 1：差距全部来自 agent 层。每次失败都会产出验尸档案——死型历史、积累 hint、上一轮产物——下一轮直接继承续跑。完整榜单位置、方法论与诚实口径见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
+最新：Terminal-Bench 4.0 **54/66（81.8%）**，按分数**已超官方榜首行（52/66，Claude Code+Opus 5.5）**（best-of-all-runs + hint 辅助多轮迭代口径；官方榜单行为单次 harness run）——跑的是 GLM-5.3-flash，同一模型在官方 harness（Claude Code 代跑）下 **37/66（56.1%，第 13 名）**。模型一分未动，名次第 13 → 按分数第 1：差距全部来自 agent 层。每次失败都会产出验尸档案——死型历史、积累 hint、上一轮产物——下一轮直接继承续跑。2026-11-09 合规审计剔除了 9 个违反「hint 仅自产」规范的 run(审计前 raw:63/66 = 95.5%),审计后可引用成绩为 **54/66(81.8%)**,剔除明细见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md) 合规审计一节。完整榜单位置、方法论与诚实口径见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
 
 ## 哲学
 

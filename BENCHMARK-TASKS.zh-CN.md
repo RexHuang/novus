@@ -2,7 +2,7 @@
 
 # TB4 Terminal-Bench 4.0 — 题目级 PASS / FAIL 清单
 
-> 快照：**2026-11-05** · 成绩 **55/66 = 83.3%**（best-of-all-runs，hint 辅助多轮迭代口径）
+> 快照:**2026-11-09(审计后)** · 成绩 **54/66 = 81.8%**(2026-11-05 快照为 55/66;9 个 run 被合规审计剔除——明细见 [BENCHMARKS.zh-CN.md](./BENCHMARKS.zh-CN.md) 合规审计一节。下表为 11-05 历史快照,5 个表内 ✅ 已被审计改判,以审计一节为准。)
 > 分母 = 官方 66 题；65 题已出分（覆盖 98.5%），1 题（GPU-only）无 result。
 > 口径与方法论详见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
 
