@@ -67,7 +67,7 @@ novus is an **open-source self-evolving agent framework** (github.com/RexHuang/n
 
 - Scoring script `tb4_score.py`: scans the `result.json` of all trials; rule = best-of-all-runs reward==1.0. The script and the task set will be published in follow-up commits to this repo; 54/64 is fully auditable.
 - Task set: `tb4/tasks-nogpu` (63 CPU tasks, synced with the official repo).
-- **Per-task best-trial table**: TBD — the published version will include 55 tasks × best trial paths (auditable down to raw verifier output) plus the archive of all hints.
+- **Per-task best-trial table**: TBD — the published version will include 54 tasks × best trial paths (plus the 9 tasks pending re-verification) (auditable down to raw verifier output) plus the archive of all hints.
 
 ## 6. Cite us with this sentence
 

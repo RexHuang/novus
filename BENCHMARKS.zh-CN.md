@@ -67,7 +67,7 @@ novus 是一个**开源的 self-evolving agent 框架**(github.com/RexHuang/novu
 
 - 评分脚本 `tb4_score.py`:扫描全部 trial 的 `result.json`,规则 = best-of-all-runs reward==1.0;脚本与任务集将随本仓库后续 commit 公开,54/64 可完整复核。
 - 任务集:`tb4/tasks-nogpu`(63 道 CPU 题,与官方 repo 同步)。
-- **逐题 trial 路径表**:TBD —— 发布版附 55 题 × best trial 路径(可审计到 verifier 输出原文),以及全部 hint 原文存档链接。
+- **逐题 trial 路径表**:TBD —— 发布版附 54 题 × best trial 路径(另附 9 道待重验题)(可审计到 verifier 输出原文),以及全部 hint 原文存档链接。
 
 ## 6. 引用我们时应同时引用
 
