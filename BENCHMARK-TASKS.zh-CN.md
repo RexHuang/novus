@@ -1,32 +1,32 @@
 [English](./BENCHMARK-TASKS.md) | 简体中文
 
-# TB4 Terminal-Bench 4.0 — 题目级 PASS / FAIL 清单
+# TB4 Terminal-Bench 4.0 — 题目级成绩清单
 
-> 快照:**2026-11-09(审计后)** · 成绩 **54/66 = 81.8%**(2026-11-05 快照为 55/66;9 个 run 被合规审计剔除——明细见 [BENCHMARKS.zh-CN.md](./BENCHMARKS.zh-CN.md) 合规审计一节。下表为 11-05 历史快照,5 个表内 ✅ 已被审计改判,以审计一节为准。)
-> 分母 = 官方 66 题；65 题已出分（覆盖 98.5%），1 题（GPU-only）无 result。
-> 口径与方法论详见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)（英文版 [BENCHMARKS.md](BENCHMARKS.md)）。
+> 快照:**2026-11-09(审计后)** · 成绩 **54/66 = 81.8%**——raw best-of-all-runs 为 63/66;合规审计(2026-11-09)判定 9 个 run 不合规、待重新验证,从成绩中剔除(明细见 [BENCHMARKS.zh-CN.md](./BENCHMARKS.zh-CN.md) 合规审计一节)。
+> 分母 = 官方 66 题;64 题已出分,2 道 GPU-only 题在我方(纯 CPU)硬件上无 result。
+> 口径与方法论详见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)(英文版 [BENCHMARK-TASKS.md](BENCHMARK-TASKS.md))。
 
-## ✅ PASS（55 题）
+## ✅ PASS（54 题）
 
 | # | 题目 | 状态 |
 |---|------|------|
 | 1 | atrx-vep-crispr | ✅ |
 | 2 | batched-eval-parity | ✅ |
-| 3 | biped-contact-dynamics | ✅ |
-| 4 | bun-sourcemap-leak | ✅ |
-| 5 | cad-model | ✅ |
-| 6 | cargo-flight-dispatch | ✅ |
-| 7 | coq-block-bound | ✅ |
+| 3 | bun-sourcemap-leak | ✅ |
+| 4 | cad-model | ✅ |
+| 5 | cargo-flight-dispatch | ✅ |
+| 6 | coq-block-bound | ✅ |
+| 7 | ctr-optimization | ✅ |
 | 8 | cumulative-layout-shift | ✅ |
 | 9 | data-anonymization | ✅ |
 | 10 | distributed-dedup | ✅ |
 | 11 | embedding-drift-monitor | ✅ |
 | 12 | fin-saccr-rwa | ✅ |
 | 13 | foodstuff-beta-activity | ✅ |
-| 14 | formal-crypto | ✅ |
-| 15 | freecad-impeller | ✅ |
-| 16 | freecad-platform-drawing | ✅ |
-| 17 | freecad-spring-clip | ✅ |
+| 14 | freecad-impeller | ✅ |
+| 15 | freecad-platform-drawing | ✅ |
+| 16 | freecad-spring-clip | ✅ |
+| 17 | freight-dispatch-shift | ✅ |
 | 18 | glycan-ms2-elucidation | ✅ |
 | 19 | gsea-proteomics | ✅ |
 | 20 | heat-pump-warranty | ✅ |
@@ -34,59 +34,70 @@
 | 22 | html-js-filter | ✅ |
 | 23 | interleaved-vigenere | ✅ |
 | 24 | intrastat-meldung | ✅ |
-| 25 | lake-temp-glm | ✅ |
-| 26 | layout-config-recreation2 | ✅ |
-| 27 | legacy-utility-triage | ✅ |
-| 28 | live-database-cutover | ✅ |
-| 29 | medical-claims-processing | ✅ |
-| 30 | mp-checkpoint-consolidation | ✅ |
-| 31 | music-harmony | ✅ |
-| 32 | mvcc-lsm-compaction | ✅ |
-| 33 | nextjs-performance | ✅ |
-| 34 | payments-pipeline-fix | ✅ |
-| 35 | photonic-waveguide-routing | ✅ |
-| 36 | pretrain-shard-corruption | ✅ |
-| 37 | production-planning | ✅ |
-| 38 | protein-autointerp-disulfide | ✅ |
-| 39 | react-lead-form | ✅ |
-| 40 | retro-console-soc | ✅ |
+| 25 | kv-live-surgery | ✅ |
+| 26 | lake-temp-glm | ✅ |
+| 27 | layout-config-recreation2 | ✅ |
+| 28 | legacy-utility-triage | ✅ |
+| 29 | live-database-cutover | ✅ |
+| 30 | medical-claims-processing | ✅ |
+| 31 | mp-checkpoint-consolidation | ✅ |
+| 32 | music-harmony | ✅ |
+| 33 | mvcc-lsm-compaction | ✅ |
+| 34 | nextjs-performance | ✅ |
+| 35 | payments-pipeline-fix | ✅ |
+| 36 | photonic-waveguide-routing | ✅ |
+| 37 | pretrain-shard-corruption | ✅ |
+| 38 | production-planning | ✅ |
+| 39 | protein-autointerp-disulfide | ✅ |
+| 40 | react-lead-form | ✅ |
 | 41 | risk-scorer-replay | ✅ |
 | 42 | roy-polymorph-cn | ✅ |
-| 43 | satb-audio-transcription | ✅ |
-| 44 | session-window-debug | ✅ |
-| 45 | sglang-qwen-burst | ✅ |
-| 46 | shadow-relay | ✅ |
-| 47 | sound-change-cascade | ✅ |
-| 48 | telecom-entity-resolution | ✅ |
-| 49 | uefi-bootkit | ✅ |
-| 50 | vba-userform-port | ✅ |
-| 51 | vf2-speedup-networkx | ✅ |
-| 52 | vllm-deepseek-streaming | ✅ |
-| 53 | vpp-loss-divergence | ✅ |
-| 54 | wal-recovery-ordering | ✅ |
-| 55 | wdm-design | ✅ |
+| 43 | rs-archive-clone | ✅ |
+| 44 | satb-audio-transcription | ✅ |
+| 45 | session-window-debug | ✅ |
+| 46 | sglang-qwen-burst | ✅ |
+| 47 | shadow-relay | ✅ |
+| 48 | sound-change-cascade | ✅ |
+| 49 | telecom-entity-resolution | ✅ |
+| 50 | vf2-speedup-networkx | ✅ |
+| 51 | vllm-deepseek-streaming | ✅ |
+| 52 | vpp-loss-divergence | ✅ |
+| 53 | wal-recovery-ordering | ✅ |
+| 54 | wdm-design | ✅ |
 
-## ❌ FAIL（10 题）
+## 🔁 待重新验证（9 题）
 
-| # | 题目 | 状态 | 备注 |
-|---|------|------|------|
-| 1 | ctr-optimization | ❌ | 14 发；反复死于 4h 时间墙，最佳 genuine CTR 2.07%（阈值 2.2%，差 0.13pp） |
-| 2 | freight-dispatch-shift | ❌ | 21 发未破 |
-| 3 | jax-speedrun-gpu | ❌ | GPU-only，本机硬件（无 NVIDIA GPU）跑不了 |
-| 4 | ks-solver-cpp | ❌ | — |
-| 5 | kv-live-surgery | ❌ | 6 发 |
-| 6 | layout-config-recreation | ❌ | 姊妹题 layout-config-recreation2 已 PASS |
-| 7 | math-eval-grader | ❌ | 5 发 |
-| 8 | ontology-kg-querying | ❌ | — |
-| 9 | rs-archive-clone | ❌ | 11 发（其中 8 次 hang） |
-| 10 | takens-embedding-lean | ❌ | 52 发；真数学难度墙（rank-space 置换类损坏，非基建死） |
+2026-11-09 合规审计判定不合规;重验通过前不计入 54/66 成绩。
 
-## ⛔ 无 result（1 题）
+| # | 题目 | 状态 |
+|---|------|------|
+| 1 | biped-contact-dynamics | 🔁 |
+| 2 | formal-crypto | 🔁 |
+| 3 | ks-solver-cpp | 🔁 |
+| 4 | layout-config-recreation | 🔁 |
+| 5 | ontology-kg-querying | 🔁 |
+| 6 | retro-console-soc | 🔁 |
+| 7 | takens-embedding-lean | 🔁 |
+| 8 | uefi-bootkit | 🔁 |
+| 9 | vba-userform-port | 🔁 |
 
-| # | 题目 | 状态 | 备注 |
-|---|------|------|------|
-| 1 | fp8-rmsnorm-gemm | ⛔ | GPU-only，从未跑出 result.json（66 题分母中计为未解） |
+## ❌ FAIL（1 题）
+
+已在 CPU 上尝试,无 PASS run。
+
+| # | 题目 | 状态 |
+|---|------|------|
+| 1 | math-eval-grader | ❌ |
+
+## ⛔ 无结果（2 题）
+
+GPU-only;我方硬件(无 NVIDIA GPU)无法运行。
+
+| # | 题目 | 状态 |
+|---|------|------|
+| 1 | fp8-rmsnorm-gemm | ⛔ |
+| 2 | jax-speedrun-gpu | ⛔ |
 
 ---
 
-*数据源：`tb4_score.py`（35 机现算，best-of-all-runs verifier reward==1.0；分母 = `~/tb4/tasks` 全部 66 题目录）。失败题备注中的"发数"= 验尸档案（postmortems/）累计尝试轮次。*
+*数据来源:`tb4_score.py`(在跑分机上现算;PASS = best-of-all-runs verifier reward == 1.0;分母 = `~/tb4/tasks` 下全部 66 个题目目录)。*
