@@ -70,7 +70,9 @@ function formatPlan(plan: Plan): string {
 	for (const step of plan.steps) {
 		const icon = statusIcon(step.status);
 		const dep = step.dependsOn.length > 0 ? ` (after ${step.dependsOn.join(", ")})` : "";
-		const detail = step.details ? ` — ${step.details}` : "";
+		// details 截断（2026-11-16 刷屏修复）：complete 的 result 常是数百字总结，
+		// 全文回显会让每次 complete 的 toolResult/UI 渲染膨胀（实测单次 1344 字符）
+		const detail = step.details ? ` — ${step.details.length > 120 ? step.details.slice(0, 117) + "..." : step.details}` : "";
 		lines.push(`${icon} Step ${step.number}: ${step.description}${dep}${detail}`);
 	}
 
@@ -80,6 +82,14 @@ function formatPlan(plan: Plan): string {
 	lines.push(`Progress: ${done}/${total} complete`);
 
 	return lines.join("\n");
+}
+
+/** 下一步指引（单行）：告诉模型接下去该做哪个 step，替代全文回显 */
+function nextStepHint(plan: Plan): string {
+	const next = plan.steps.find((s) => s.status === "in-progress")
+		?? plan.steps.find((s) => s.status !== "done");
+	if (!next) return "";
+	return ` Next: Step ${next.number} — ${next.description}`;
 }
 
 /** Load plan from dedicated file */
@@ -217,10 +227,17 @@ export function createTool(_cwd: string): AgentTool<any> {
 					plan.updatedAt = now;
 					savePlan(plan);
 
+					// 单行简报（2026-11-16 刷屏修复）：不再回显 formatPlan 全文。
+					// 实战（ws-comm 身份认证收官轮）：agent 逐个补登 6 个 step，每次 complete
+					// 回传全文 plan（810→1344 字符递增），UI 连刷 6 组「调用行+灰色全文预览」；
+					// 且收官轮 token 紧张时被放大成 2 次 max_tokens 截断 + 3 轮续写。
+					// stepNumber+result 是模型自己刚发的，无需回显；给下一步指引即可。
 					const allDone = plan.steps.every((s) => s.status === "done");
+					const done = plan.steps.filter((s) => s.status === "done").length;
+					const total = plan.steps.length;
 					const msg = allDone
-						? "🎉 All steps complete! Plan finished.\n\n" + formatPlan(plan)
-						: formatPlan(plan);
+						? `🎉 Step ${p.stepNumber} done — all ${done}/${total} complete! Plan finished. No further 'complete' calls needed.`
+						: `✓ Step ${p.stepNumber} done (${done}/${total}).` + nextStepHint(plan);
 
 					return { content: [text(msg)], details: {} };
 				}
@@ -257,18 +274,18 @@ function autoUnblock(plan: Plan): void {
 }
 
 /**
- * handleAutoExecute — autonomous plan execution engine
+ * handleAutoExecute — 自主规划执行引擎
  *
- * Doesn't call tools directly (tools are flat); instead analyzes the current plan state,
- * finds the next pending step, generates a structured execution script,
- * and tells the LLM what to do, with which tool, and with what params.
+ * 不直接调用工具（工具是flat的），而是分析当前plan状态，
+ * 找到下一个待执行步骤，生成结构化的执行指令（剧本），
+ * 告诉LLM应该做什么、用什么工具、传什么参数。
  *
- * Core capabilities:
- *   1. identify the next pending step
- *   2. infer required tools and params from the step description
- *   3. check that prerequisites are done
- *   4. generate an executable action plan
- *   5. suggest a fallback strategy on failure
+ * 核心能力：
+ *   1. 识别下一个pending步骤
+ *   2. 根据步骤描述推断需要的工具和参数
+ *   3. 检查前置依赖是否完成
+ *   4. 生成可执行的action plan
+ *   5. 失败时建议回退策略
  */
 function handleAutoExecute() {
 	const plan = loadPlan();
@@ -297,27 +314,27 @@ function handleAutoExecute() {
 	const doneSteps = plan.steps.filter(s => s.status === "done");
 	const context = doneSteps.length > 0
 		? doneSteps.map(s => `[${s.number}] ${s.description}${s.details ? ": " + s.details.slice(0, 100) : ""}`).join("\n")
-		: "no prerequisites";
+		: "无前置步骤";
 
 	// Generate execution script
 	const script: string[] = [
-		`📋 Autonomous execution — Step ${nextStep.number}/${plan.steps.length}`,
-		`Goal: ${plan.goal}`,
+		`📋 自主执行 — Step ${nextStep.number}/${plan.steps.length}`,
+		`目标: ${plan.goal}`,
 		``,
-		`▶ Current step: ${desc}`,
+		`▶ 当前步骤: ${desc}`,
 		``,
-		`📥 Inferred tool chain:`,
+		`📥 推断的工具链:`,
 	];
 	for (const action of inferred.actions) {
 		script.push(`  → ${action}`);
 	}
 
 	if (inferred.fallback) {
-		script.push(``, `🔄 On failure: ${inferred.fallback}`);
+		script.push(``, `🔄 失败回退: ${inferred.fallback}`);
 	}
 
-	script.push(``, `📦 Prerequisite context:`, context);
-	script.push(``, `💡 Execution advice:`, inferred.advice);
+	script.push(``, `📦 前置上下文:`, context);
+	script.push(``, `💡 执行建议:`, inferred.advice);
 
 	// Auto-mark as in-progress
 	nextStep.status = "in-progress";
@@ -336,68 +353,68 @@ function handleAutoExecute() {
 	};
 }
 
-/** Infer the needed actions from a step description */
+/** 从步骤描述推断需要的行动 */
 function inferActions(desc: string): { actions: string[]; fallback: string; advice: string } {
 	const lower = desc.toLowerCase();
 	const actions: string[] = [];
-	let fallback = "Check the previous step's result, confirm environment state, then retry";
-	let advice = "Confirm environment and dependencies are ready before the main operation.";
+	let fallback = "检查上一个步骤的结果，确认环境状态后重试";
+	let advice = "先确认环境和依赖就绪，再执行主要操作。";
 
 	// Pattern matching on step descriptions
 	if (/ssh|远程|服务器|175|93/.test(lower)) {
-		actions.push("bash: sshpass -p '<password>' ssh ubuntu@<target-ip> '<command>'");
-		actions.push("healthy: check node status");
-		fallback = "Check SSH connectivity, confirm the target server is online";
+		actions.push("bash: sshpass -p '密码' ssh ubuntu@目标IP '命令'");
+		actions.push("healthy: 检查节点状态");
+		fallback = "检查SSH连通性，确认目标服务器在线";
 	}
 	if (/修复|fix|bug|错误|error/.test(lower)) {
 		actions.push("bash/read: 诊断问题（查看日志/错误信息）");
-		actions.push("edit/write: fix the code");
-		actions.push("runtests: verify the fix");
-		fallback = "If the fix fails, roll back to the last known-good version";
+		actions.push("edit/write: 修复代码");
+		actions.push("runtests: 验证修复");
+		fallback = "如果修复失败，尝试回退到上一个已知好的版本";
 	}
 	if (/编译|build|tsc|deploy|部署|发布/.test(lower)) {
 		actions.push("bash: cd ~/novus && npx tsc");
-		actions.push("bash: deploy command");
-		fallback = "If the build fails, check TypeScript errors and fix them";
+		actions.push("bash: 部署命令");
+		fallback = "如果编译失败，检查TypeScript错误并修复";
 	}
 	if (/测试|test|验证/.test(lower)) {
-		actions.push("runtests: run the tests");
-		fallback = "If tests fail, inspect failure details and locate the bug";
+		actions.push("runtests: 运行测试");
+		fallback = "如果测试失败，查看失败详情，定位bug";
 	}
 	if (/抓取|fetch|crawl|新闻|news/.test(lower)) {
-		actions.push("connect fetch: fetch the URL");
-		actions.push("connect learn: store valuable knowledge");
+		actions.push("connect fetch: 抓取URL");
+		actions.push("connect learn: 存储有价值的知识");
 	}
 	if (/知识|knowledge|recall|learn/.test(lower)) {
-		actions.push("connect recall: search related knowledge");
-		actions.push("connect learn: store new knowledge");
+		actions.push("connect recall: 搜索相关知识");
+		actions.push("connect learn: 存储新知识");
 	}
 	if (/监控|巡检|health|check|检查/.test(lower)) {
-		actions.push("healthy check: check fleet status");
-		actions.push("federation status: view federation status");
+		actions.push("healthy check: 检查三机状态");
+		actions.push("federation status: 查看联邦状态");
 	}
 	if (/联邦|federation|ws-comm|同步/.test(lower)) {
-		actions.push("federation: federation operations");
-		actions.push("ws-comm: message communication");
+		actions.push("federation: 联邦操作");
+		actions.push("ws-comm: 消息通信");
 	}
 	if (/优化|improve|refactor|重构/.test(lower)) {
-		actions.push("read: read current code");
-		actions.push("edit/write: modify and improve");
-		actions.push("runtests: verify no regression");
+		actions.push("read: 读取当前代码");
+		actions.push("edit/write: 修改优化");
+		actions.push("runtests: 验证无回归");
 	}
 	if (/存储|store|connect|知识/.test(lower) && /写入|save|写/.test(lower)) {
-		actions.push("connect learn: store knowledge/experience");
+		actions.push("connect learn: 存储知识/经历");
 	}
 
 	if (actions.length === 0) {
-		actions.push("bash/read: analyze current state");
-		actions.push("Decide the next tool based on the analysis");
-		advice = "This is an open-ended step — handle flexibly based on the actual situation";
+		actions.push("bash/read: 分析当前状态");
+		actions.push("根据分析结果决定下一步工具");
+		advice = "这是一个开放性步骤，需要根据实际情况灵活处理";
 	}
 
 	// Generate contextual advice based on step position
 	if (/步骤|Step/i.test(desc) && /1|第一|初始/.test(desc)) {
-		advice = "This is the first step — confirm the environment is ready before starting.";
+		advice = "这是第一步，先确认环境就绪再开始。";
 	}
 
 	return { actions, fallback, advice };
