@@ -24,7 +24,7 @@
 
 | 名次 | Agent + 模型 | best-of-N 得分 |
 |---|---|---|
-| **1** | **novus + GLM-5.3-flash(自跑)** | **54/66 (81.8%)\***(2026-11-09 合规审计;审计剔除 9 个 run 前 raw best-of-all-runs 为 63/66 = 95.5%——见合规审计一节;历史快照:55/66 于 2026-11-05,53/66 于 2026-11-04,50/66 于 2026-10-27)——**本表最高分**;自跑口径,非官方榜单行 |
+| **1** | **novus + GLM-5.3-flash(自跑)** | **54/66 (81.8%)\***(2026-11-09 合规审计;历史快照:55/66 于 2026-11-05,53/66 于 2026-11-04,50/66 于 2026-10-27)——**本表最高分**;自跑口径,非官方榜单行 |
 | (1) | Claude Code + Opus 5.5 | 52/66 (78.8%) |
 | (1) | Claude Code + Fable 5.1 | 52/66 (78.8%) |
 | (3) | Claude Code + Sonnet 5.5 | 51/66 (77.3%) |
@@ -78,7 +78,7 @@ novus 是一个**开源的 self-evolving agent 框架**(github.com/RexHuang/novu
 - **5 题**使用了从任务参考解逆向提炼方法论/架构后写成的 hint 通过:biped-contact-dynamics、formal-crypto、retro-console-soc、uefi-bootkit、vba-userform-port。
 - **4 题**在 2026-11-08/09 产出了 verifier 通过的 run,但其方式是向 agent 上下文直接注入官方解文件:ontology-kg-querying、ks-solver-cpp、layout-config-recreation、takens-embedding-lean。
 
-这 9 个全部**从成绩中剔除**。审计前 raw best-of-all-runs 为 63/66(95.5%);审计后可引用成绩为 **54/66 = 81.8%**。剩余 54 个 PASS 已逐题复核:每条 hint 均可溯源到我方自己的验尸档案、自推数学或第三方公开文档——不含 ground truth、不含 verifier 逻辑、不含参考解。
+这 9 个全部**从成绩中剔除**;审计后可引用成绩为 **54/66 = 81.8%**。剩余 54 个 PASS 已逐题复核:每条 hint 均可溯源到我方自己的验尸档案、自推数学或第三方公开文档——不含 ground truth、不含 verifier 逻辑、不含参考解。
 
 本节存在的意义是让这个数字可以带完整来源地被引用。任何引用必须使用审计后数字。
 
