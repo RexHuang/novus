@@ -65,13 +65,22 @@
 | 53 | wal-recovery-ordering | ✅ |
 | 54 | wdm-design | ✅ |
 
-## ❌ FAIL (1 task)
+## ❌ FAIL (10 tasks)
 
-Attempted on CPU; no PASS run.
+Attempted; no score-crediting PASS run.
 
 | # | Task | Status |
 |---|------|--------|
 | 1 | math-eval-grader | ❌ |
+| 2 | biped-contact-dynamics | ❌ |
+| 3 | formal-crypto | ❌ |
+| 4 | ks-solver-cpp | ❌ |
+| 5 | layout-config-recreation | ❌ |
+| 6 | ontology-kg-querying | ❌ |
+| 7 | retro-console-soc | ❌ |
+| 8 | takens-embedding-lean | ❌ |
+| 9 | uefi-bootkit | ❌ |
+| 10 | vba-userform-port | ❌ |
 
 ## ⛔ No result (2 tasks)
 
