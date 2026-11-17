@@ -2,7 +2,7 @@
 
 # TB4 Terminal-Bench 4.0 — Task-Level Results
 
-> Snapshot: **2026-11-09 (audited)** · Score **54/66 = 81.8%** — raw best-of-all-runs is 63/66; the contamination audit (2026-11-09) flagged 9 runs as non-compliant, excluded pending re-verification (see the audit section in [BENCHMARKS.md](./BENCHMARKS.md)).
+> Snapshot: **2026-11-09 (audited)** · Score **54/66 = 81.8%** — the contamination audit (2026-11-09) flagged 9 runs as non-compliant, excluded pending re-verification (see the audit section in [BENCHMARKS.md](./BENCHMARKS.md)).
 > Denominator = the official 66-task set; 64 tasks have verifier results, 2 GPU-only tasks produced no result on our (CPU-only) hardware.
 > Convention & methodology: see [BENCHMARKS.md](./BENCHMARKS.md) (简体中文: [BENCHMARKS.zh-CN.md](./BENCHMARKS.zh-CN.md)).
 
