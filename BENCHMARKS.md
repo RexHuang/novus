@@ -24,7 +24,7 @@ Task-level PASS/FAIL list (all 66 tasks): **[BENCHMARK-TASKS.md](./BENCHMARK-TAS
 
 | Rank | Agent + Model | Best-of-N score |
 |---|---|---|
-| **1** | **novus + GLM-5.3-flash (self-run)** | **54/66 (81.8%)\*** (previous snapshots: 55/66 on 2026-11-05, 53/66 on 2026-11-04, 50/66 on 2026-10-27) — **highest score in this table**; self-run row, not an official leaderboard entry |
+| **1** | **novus + GLM-5.3-flash (self-run)** | **54/66 (81.8%)\*** — **highest score in this table**; self-run row, not an official leaderboard entry |
 | (1) | Claude Code + Opus 5.5 | 52/66 (78.8%) |
 | (1) | Claude Code + Fable 5.1 | 52/66 (78.8%) |
 | (3) | Claude Code + Sonnet 5.5 | 51/66 (77.3%) |
