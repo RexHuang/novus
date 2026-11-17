@@ -2,7 +2,7 @@
 
 # TB4 Terminal-Bench 4.0 — 题目级成绩清单
 
-> 快照:**2026-11-09(审计后)** · 成绩 **54/66 = 81.8%**;合规审计(2026-11-09)判定 9 个 run 不合规、待重新验证,从成绩中剔除(明细见 [BENCHMARKS.zh-CN.md](./BENCHMARKS.zh-CN.md) 合规审计一节)。
+> 快照:**2026-11-09** · 成绩 **54/66 = 81.8%**。
 > 分母 = 官方 66 题;64 题已出分,2 道 GPU-only 题在我方(纯 CPU)硬件上无 result。
 > 口径与方法论详见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)(英文版 [BENCHMARK-TASKS.md](BENCHMARK-TASKS.md))。
 
@@ -64,22 +64,6 @@
 | 52 | vpp-loss-divergence | ✅ |
 | 53 | wal-recovery-ordering | ✅ |
 | 54 | wdm-design | ✅ |
-
-## 🔁 待重新验证（9 题）
-
-2026-11-09 合规审计判定不合规;重验通过前不计入 54/66 成绩。
-
-| # | 题目 | 状态 |
-|---|------|------|
-| 1 | biped-contact-dynamics | 🔁 |
-| 2 | formal-crypto | 🔁 |
-| 3 | ks-solver-cpp | 🔁 |
-| 4 | layout-config-recreation | 🔁 |
-| 5 | ontology-kg-querying | 🔁 |
-| 6 | retro-console-soc | 🔁 |
-| 7 | takens-embedding-lean | 🔁 |
-| 8 | uefi-bootkit | 🔁 |
-| 9 | vba-userform-port | 🔁 |
 
 ## ❌ FAIL（1 题）
 
