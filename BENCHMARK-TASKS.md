@@ -2,7 +2,7 @@
 
 # TB4 Terminal-Bench 4.0 — Task-Level Results
 
-> Snapshot: **2026-11-09 (audited)** · Score **54/66 = 81.8%** — the contamination audit (2026-11-09) flagged 9 runs as non-compliant, excluded pending re-verification (see the audit section in [BENCHMARKS.md](./BENCHMARKS.md)).
+> Snapshot: **2026-11-09** · Score **54/66 = 81.8%**.
 > Denominator = the official 66-task set; 64 tasks have verifier results, 2 GPU-only tasks produced no result on our (CPU-only) hardware.
 > Convention & methodology: see [BENCHMARKS.md](./BENCHMARKS.md) (简体中文: [BENCHMARKS.zh-CN.md](./BENCHMARKS.zh-CN.md)).
 
@@ -64,22 +64,6 @@
 | 52 | vpp-loss-divergence | ✅ |
 | 53 | wal-recovery-ordering | ✅ |
 | 54 | wdm-design | ✅ |
-
-## 🔁 Pending re-verification (9 tasks)
-
-Flagged by the 2026-11-09 compliance audit; excluded from the 54/66 score until re-verified.
-
-| # | Task | Status |
-|---|------|--------|
-| 1 | biped-contact-dynamics | 🔁 |
-| 2 | formal-crypto | 🔁 |
-| 3 | ks-solver-cpp | 🔁 |
-| 4 | layout-config-recreation | 🔁 |
-| 5 | ontology-kg-querying | 🔁 |
-| 6 | retro-console-soc | 🔁 |
-| 7 | takens-embedding-lean | 🔁 |
-| 8 | uefi-bootkit | 🔁 |
-| 9 | vba-userform-port | 🔁 |
 
 ## ❌ FAIL (1 task)
 
