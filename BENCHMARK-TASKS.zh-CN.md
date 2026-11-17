@@ -65,13 +65,22 @@
 | 53 | wal-recovery-ordering | ✅ |
 | 54 | wdm-design | ✅ |
 
-## ❌ FAIL（1 题）
+## ❌ FAIL（10 题）
 
-已在 CPU 上尝试,无 PASS run。
+已尝试,无计入成绩的 PASS run。
 
 | # | 题目 | 状态 |
 |---|------|------|
 | 1 | math-eval-grader | ❌ |
+| 2 | biped-contact-dynamics | ❌ |
+| 3 | formal-crypto | ❌ |
+| 4 | ks-solver-cpp | ❌ |
+| 5 | layout-config-recreation | ❌ |
+| 6 | ontology-kg-querying | ❌ |
+| 7 | retro-console-soc | ❌ |
+| 8 | takens-embedding-lean | ❌ |
+| 9 | uefi-bootkit | ❌ |
+| 10 | vba-userform-port | ❌ |
 
 ## ⛔ 无结果（2 题）
 
