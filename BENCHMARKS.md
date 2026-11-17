@@ -24,7 +24,7 @@ Task-level PASS/FAIL list (all 66 tasks): **[BENCHMARK-TASKS.md](./BENCHMARK-TAS
 
 | Rank | Agent + Model | Best-of-N score |
 |---|---|---|
-| **1** | **novus + GLM-5.3-flash (self-run)** | **54/66 (81.8%)\*** (2026-11-09 compliance audit; raw best-of-all-runs was 63/66 = 95.5% before the audit excluded 9 runs — see the contamination-audit section; previous snapshots: 55/66 on 2026-11-05, 53/66 on 2026-11-04, 50/66 on 2026-10-27) — **highest score in this table**; self-run row, not an official leaderboard entry |
+| **1** | **novus + GLM-5.3-flash (self-run)** | **54/66 (81.8%)\*** (2026-11-09 compliance audit; previous snapshots: 55/66 on 2026-11-05, 53/66 on 2026-11-04, 50/66 on 2026-10-27) — **highest score in this table**; self-run row, not an official leaderboard entry |
 | (1) | Claude Code + Opus 5.5 | 52/66 (78.8%) |
 | (1) | Claude Code + Fable 5.1 | 52/66 (78.8%) |
 | (3) | Claude Code + Sonnet 5.5 | 51/66 (77.3%) |
@@ -78,7 +78,7 @@ A full audit of every hint file and PASS-run provenance was performed on 2026-11
 - **5 tasks** passed with hints whose methodology/architecture notes were reverse-engineered from the tasks' reference solutions: biped-contact-dynamics, formal-crypto, retro-console-soc, uefi-bootkit, vba-userform-port.
 - **4 tasks** produced verifier-PASS runs (2026-11-08/09) that directly injected official solution files into the agent context: ontology-kg-querying, ks-solver-cpp, layout-config-recreation, takens-embedding-lean.
 
-All 9 are **excluded from the score**. Raw best-of-all-runs before the audit was 63/66 (95.5%); the audited, citable number is **54/66 = 81.8%**. The 54 remaining PASSes were re-verified: every hint traces to our own post-mortem archive, self-derived math, or public third-party docs — no ground truth, no verifier logic, no reference solutions.
+All 9 are **excluded from the score**; the audited, citable number is **54/66 = 81.8%**. The 54 remaining PASSes were re-verified: every hint traces to our own post-mortem archive, self-derived math, or public third-party docs — no ground truth, no verifier logic, no reference solutions.
 
 This section exists so the number can be cited with full provenance. Any citation must use the audited figure.
 
