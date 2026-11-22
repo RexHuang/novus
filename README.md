@@ -142,3 +142,9 @@ AGPL-3.0 — see [LICENSE](LICENSE). Versions up to and including v1.2.2-dev are
 You may freely use, modify, and self-host novus (including commercially). If you offer novus — modified or not — as a network service to others, you must release your modifications under AGPL-3.0. Commercial licensing (OEM / hosted SaaS / closed-source integration): [huangshuhong@hong-tech.com](mailto:huangshuhong@hong-tech.com).
 
 novus is open-core: federation / multi-node fleet, audit, SSO and managed capabilities are part of the commercial edition.
+
+### Why did the license change?
+
+Novus was originally Apache-2.0. From v1.3.0 onward it is AGPL-3.0-only (dual-licensed with a commercial option). One reason drove the change: Apache-2.0 allows anyone to take the code, run it as a closed-source hosted service, and give nothing back — exactly the behavior that kills sustainable open development. AGPL keeps novus free to use, modify, and self-host (including commercially), while ensuring that those who offer it as a network service share their modifications.
+
+Versions up to and including v1.2.2-dev remain Apache-2.0 and may continue to be used under that license. They will, however, receive no updates — all new development happens on the AGPL line.
