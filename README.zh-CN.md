@@ -137,4 +137,8 @@ Novus 不是从一张架构图开始的。它从一颗种子——一个最小�
 
 ## 许可
 
-Apache 2.0——见 [LICENSE](LICENSE)。基于 [pi-agent-core](https://www.npmjs.com/package/@earendil-works/pi-agent-core)（MIT）构建。
+AGPL-3.0——见 [LICENSE](LICENSE)。v1.2.2-dev 及之前版本为 Apache-2.0。基于 [pi-agent-core](https://www.npmjs.com/package/@earendil-works/pi-agent-core)（MIT）构建。
+
+你可以自由使用、修改和自部署 novus（含商用）；但若将 novus（无论是否修改）作为网络服务提供给他人，须依据 AGPL-3.0 开源你的修改。商业许可（OEM / 托管 SaaS / 闭源集成）：[huangshuhong@hong-tech.com](mailto:huangshuhong@hong-tech.com)。
+
+novus 采用 open-core 模式：多机联邦、审计、SSO、托管能力属商业版。

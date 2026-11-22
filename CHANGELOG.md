@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- **License**: Apache-2.0 → **AGPL-3.0-only** (dual-licensed; commercial license available for OEM / hosted SaaS / closed-source integrations — huangshuhong@hong-tech.com). Versions up to and including v1.2.2-dev remain Apache-2.0. See LICENSE.
+
 ## 1.1.1 — Security patch: multi-tenant row-level isolation (2026-09-15)
 
 Fixes the tenant-isolation issue reported in #1.

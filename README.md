@@ -137,4 +137,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Good first issues: tool ideas, Termux/An
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE). Built on [pi-agent-core](https://www.npmjs.com/package/@earendil-works/pi-agent-core) (MIT).
+AGPL-3.0 — see [LICENSE](LICENSE). Versions up to and including v1.2.2-dev are Apache-2.0. Built on [pi-agent-core](https://www.npmjs.com/package/@earendil-works/pi-agent-core) (MIT).
+
+You may freely use, modify, and self-host novus (including commercially). If you offer novus — modified or not — as a network service to others, you must release your modifications under AGPL-3.0. Commercial licensing (OEM / hosted SaaS / closed-source integration): [huangshuhong@hong-tech.com](mailto:huangshuhong@hong-tech.com).
+
+novus is open-core: federation / multi-node fleet, audit, SSO and managed capabilities are part of the commercial edition.

@@ -54,6 +54,7 @@ Include: the tool trace (the agent prints tool calls), Node version, OS, and whe
 ## License & Contributions
 
 By submitting a pull request, you agree that your contributions are licensed
-under the Apache License 2.0, and that the project maintainer retains the
-right to relicense future versions (including dual-licensing). This keeps
-the project flexible long-term while all published versions remain open.
+under the GNU AGPL-3.0, and that the project maintainer (Guangzhou Hong-tech
+Internet Service Co., Ltd.) may relicense your contributions — including
+dual-licensing under a commercial license — as part of novus. Versions up to
+and including v1.2.2-dev remain under the Apache License 2.0.
