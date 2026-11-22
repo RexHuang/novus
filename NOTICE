@@ -1,0 +1,19 @@
+novus — self-evolving agent platform
+Copyright (C) 2026 Guangzhou Hong-tech Internet Service Co., Ltd.
+
+Version boundary: source code releases up to and including tag v1.2.2-dev
+were licensed under the Apache License 2.0. From v1.3.0 onward, this
+project is licensed under the GNU Affero General Public License v3.0
+(AGPL-3.0-only).
+
+Commercial licensing (OEM / hosted SaaS / closed-source integration):
+huangshuhong@hong-tech.com
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero
+General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
