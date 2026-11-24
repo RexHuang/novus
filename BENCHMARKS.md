@@ -3,7 +3,7 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 # Terminal-Bench 4.0 — novus Results & Methodology Notes
 
 > 2026-11-05 · All numbers are computed by the scoring script `tb4_score.py` from the `result.json` of every trial — fully reproducible.
-> One-liner: **The same model (GLM-5.3-Flash) scores 37/66 (56.1%, #13) under the official harness (run by Claude Code); with novus as the agent it scores 54/66 (81.8%), above the #1 row (52/66, Claude Code+Opus 5.5) by score — the entire gap comes from the agent layer, not the model weights.**
+> One-liner: **The same model (GLM-5.3-Flash) scores 37/66 (56.1%, #13) under the official harness (run by Claude Code); with novus as the agent it scores 56/66 (84.8%), above the #1 row (52/66, Claude Code+Opus 5.5) by score — the entire gap comes from the agent layer, not the model weights.**
 
 ---
 
@@ -11,10 +11,10 @@ English | [简体中文](./BENCHMARKS.zh-CN.md)
 
 | Convention | Result |
 |---|---|
-| novus (GLM-5.3-Flash, self-run) @ TB4, official 66-task leaderboard convention | **54/66 = 81.8%** (best-of-all-runs; above the #1 row of the official snapshot by score) |
+| novus (GLM-5.3-Flash, self-run) @ TB4, official 66-task leaderboard convention | **56/66 = 84.8%** (best-of-all-runs; above the #1 row of the official snapshot by score) |
 | Same model GLM-5.3-Flash under the official harness (Claude Code) | 37/66 = 56.1%, #13 |
 | Improvement | **+25.7pp (1.46×), rank #13 → #1 (by score)** |
-| Local audit convention | 54/64 = 84.4% over the 64 attempted tasks (2 GPU-tagged tasks cannot produce valid scored runs on our GPU-less hardware: fp8-rmsnorm-gemm, jax-speedrun-gpu; counted unsolved in the /66 denominator) |
+| Local audit convention | 56/64 = 87.5% over the 64 attempted tasks (2 GPU-tagged tasks cannot produce valid scored runs on our GPU-less hardware: fp8-rmsnorm-gemm, jax-speedrun-gpu; counted unsolved in the /66 denominator) |
 | Task-set coverage | 65/66 tasks with verifier results (98.5%); fp8-rmsnorm-gemm (GPU-only) has no result |
 | TB-core (legacy benchmark, frozen) | 34/80 = 42.50% (2026-09-29) |
 
@@ -24,7 +24,7 @@ Task-level PASS/FAIL list (all 66 tasks): **[BENCHMARK-TASKS.md](./BENCHMARK-TAS
 
 | Rank | Agent + Model | Best-of-N score |
 |---|---|---|
-| **1** | **novus + GLM-5.3-flash (self-run)** | **54/66 (81.8%)\*** — **highest score in this table**; self-run row, not an official leaderboard entry |
+| **1** | **novus + GLM-5.3-flash (self-run)** | **56/66 (84.8%)\*** — **highest score in this table**; self-run row, not an official leaderboard entry |
 | (1) | Claude Code + Opus 5.5 | 52/66 (78.8%) |
 | (1) | Claude Code + Fable 5.1 | 52/66 (78.8%) |
 | (3) | Claude Code + Sonnet 5.5 | 51/66 (77.3%) |
@@ -42,7 +42,7 @@ Task-level PASS/FAIL list (all 66 tasks): **[BENCHMARK-TASKS.md](./BENCHMARK-TAS
 
 ## 3. Methodology statement (three honest notes, before anyone asks)
 
-**① Denominator: the official 66-task leaderboard convention.** The official leaderboard rows are scored over the full 66-task set. novus attempted 64 of the 66 tasks; 2 GPU-tagged tasks (fp8-rmsnorm-gemm, jax-speedrun-gpu) cannot produce valid scored runs on our GPU-less hardware and count as unsolved in the 66-task denominator. Equivalently, 54/64 = 84.4% over the attempted set — we quote 54/66 to align with the official rows.
+**① Denominator: the official 66-task leaderboard convention.** The official leaderboard rows are scored over the full 66-task set. novus attempted 64 of the 66 tasks; 2 GPU-tagged tasks (fp8-rmsnorm-gemm, jax-speedrun-gpu) cannot produce valid scored runs on our GPU-less hardware and count as unsolved in the 66-task denominator. Equivalently, 56/64 = 87.5% over the attempted set — we quote 56/66 to align with the official rows.
 
 **② Multi-round iteration: the overwhelming majority of the 54 PASSes come from the post-mortem → hint → refire flywheel.**
 - First full bare run (tb4-full-novus, 2026-09-30): only 1 PASS. In the earlier 40-PASS cut, 1 came from the first run and 49 from targeted refire lanes. The raw first-run percentage is **not a capability baseline**: most first-round failures were engineering failures (environment, rate limiting, truncation), not capability ceilings.
@@ -65,13 +65,13 @@ novus is an **open-source self-evolving agent framework** (github.com/RexHuang/n
 
 ## 5. Reproducibility & per-task details
 
-- Scoring script `tb4_score.py`: scans the `result.json` of all trials; rule = best-of-all-runs reward==1.0. The script and the task set will be published in follow-up commits to this repo; 54/64 is fully auditable.
+- Scoring script `tb4_score.py`: scans the `result.json` of all trials; rule = best-of-all-runs reward==1.0. The script and the task set will be published in follow-up commits to this repo; 56/64 is fully auditable.
 - Task set: `tb4/tasks-nogpu` (63 CPU tasks, synced with the official repo).
 - **Per-task best-trial table**: TBD — the published version will include 54 tasks × best trial paths (auditable down to raw verifier output) plus the archive of all hints.
 
 ## 6. Cite us with this sentence
 
-> "novus achieves 54/66 (81.8%, above the #1 row of the official snapshot by score) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
+> "novus achieves 56/66 (84.8%, above the #1 row of the official snapshot by score) on Terminal-Bench 4.0 (official 66-task leaderboard convention; best-of-all-runs, hint-assisted multi-round iteration; the same model GLM-5.3-Flash scores 37/66 = 56.1%, #13, under the official single-run harness)."
 
 Citing our number without the convention is exactly what this file exists to prevent.
 
