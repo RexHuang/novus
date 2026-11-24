@@ -2,85 +2,85 @@
 
 # TB4 Terminal-Bench 4.0 — 题目级成绩清单
 
-> 快照:**2026-11-09** · 成绩 **54/66 = 81.8%**。
+> 快照:**2026-11-23** · 成绩 **56/66 = 84.8%**。
 > 分母 = 官方 66 题;64 题已出分,2 道 GPU-only 题在我方(纯 CPU)硬件上无 result。
 > 口径与方法论详见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)(英文版 [BENCHMARK-TASKS.md](BENCHMARK-TASKS.md))。
 
-## ✅ PASS（54 题）
+## ✅ PASS（56 题）
 
 | # | 题目 | 状态 |
 |---|------|------|
 | 1 | atrx-vep-crispr | ✅ |
 | 2 | batched-eval-parity | ✅ |
-| 3 | bun-sourcemap-leak | ✅ |
-| 4 | cad-model | ✅ |
-| 5 | cargo-flight-dispatch | ✅ |
-| 6 | coq-block-bound | ✅ |
-| 7 | ctr-optimization | ✅ |
-| 8 | cumulative-layout-shift | ✅ |
-| 9 | data-anonymization | ✅ |
-| 10 | distributed-dedup | ✅ |
-| 11 | embedding-drift-monitor | ✅ |
-| 12 | fin-saccr-rwa | ✅ |
-| 13 | foodstuff-beta-activity | ✅ |
-| 14 | freecad-impeller | ✅ |
-| 15 | freecad-platform-drawing | ✅ |
-| 16 | freecad-spring-clip | ✅ |
-| 17 | freight-dispatch-shift | ✅ |
-| 18 | glycan-ms2-elucidation | ✅ |
-| 19 | gsea-proteomics | ✅ |
-| 20 | heat-pump-warranty | ✅ |
-| 21 | hof-topology-interpenetration | ✅ |
-| 22 | html-js-filter | ✅ |
-| 23 | interleaved-vigenere | ✅ |
-| 24 | intrastat-meldung | ✅ |
-| 25 | kv-live-surgery | ✅ |
-| 26 | lake-temp-glm | ✅ |
-| 27 | layout-config-recreation2 | ✅ |
-| 28 | legacy-utility-triage | ✅ |
-| 29 | live-database-cutover | ✅ |
-| 30 | medical-claims-processing | ✅ |
-| 31 | mp-checkpoint-consolidation | ✅ |
-| 32 | music-harmony | ✅ |
-| 33 | mvcc-lsm-compaction | ✅ |
-| 34 | nextjs-performance | ✅ |
-| 35 | payments-pipeline-fix | ✅ |
-| 36 | photonic-waveguide-routing | ✅ |
-| 37 | pretrain-shard-corruption | ✅ |
-| 38 | production-planning | ✅ |
-| 39 | protein-autointerp-disulfide | ✅ |
-| 40 | react-lead-form | ✅ |
-| 41 | risk-scorer-replay | ✅ |
-| 42 | roy-polymorph-cn | ✅ |
-| 43 | rs-archive-clone | ✅ |
-| 44 | satb-audio-transcription | ✅ |
-| 45 | session-window-debug | ✅ |
-| 46 | sglang-qwen-burst | ✅ |
-| 47 | shadow-relay | ✅ |
-| 48 | sound-change-cascade | ✅ |
-| 49 | telecom-entity-resolution | ✅ |
-| 50 | vf2-speedup-networkx | ✅ |
-| 51 | vllm-deepseek-streaming | ✅ |
-| 52 | vpp-loss-divergence | ✅ |
-| 53 | wal-recovery-ordering | ✅ |
-| 54 | wdm-design | ✅ |
+| 3 | biped-contact-dynamics | ✅ |
+| 4 | bun-sourcemap-leak | ✅ |
+| 5 | cad-model | ✅ |
+| 6 | cargo-flight-dispatch | ✅ |
+| 7 | coq-block-bound | ✅ |
+| 8 | ctr-optimization | ✅ |
+| 9 | cumulative-layout-shift | ✅ |
+| 10 | data-anonymization | ✅ |
+| 11 | distributed-dedup | ✅ |
+| 12 | embedding-drift-monitor | ✅ |
+| 13 | fin-saccr-rwa | ✅ |
+| 14 | foodstuff-beta-activity | ✅ |
+| 15 | formal-crypto | ✅ |
+| 16 | freecad-impeller | ✅ |
+| 17 | freecad-platform-drawing | ✅ |
+| 18 | freecad-spring-clip | ✅ |
+| 19 | freight-dispatch-shift | ✅ |
+| 20 | glycan-ms2-elucidation | ✅ |
+| 21 | gsea-proteomics | ✅ |
+| 22 | heat-pump-warranty | ✅ |
+| 23 | hof-topology-interpenetration | ✅ |
+| 24 | html-js-filter | ✅ |
+| 25 | interleaved-vigenere | ✅ |
+| 26 | intrastat-meldung | ✅ |
+| 27 | kv-live-surgery | ✅ |
+| 28 | lake-temp-glm | ✅ |
+| 29 | layout-config-recreation2 | ✅ |
+| 30 | legacy-utility-triage | ✅ |
+| 31 | live-database-cutover | ✅ |
+| 32 | medical-claims-processing | ✅ |
+| 33 | mp-checkpoint-consolidation | ✅ |
+| 34 | music-harmony | ✅ |
+| 35 | mvcc-lsm-compaction | ✅ |
+| 36 | nextjs-performance | ✅ |
+| 37 | payments-pipeline-fix | ✅ |
+| 38 | photonic-waveguide-routing | ✅ |
+| 39 | pretrain-shard-corruption | ✅ |
+| 40 | production-planning | ✅ |
+| 41 | protein-autointerp-disulfide | ✅ |
+| 42 | react-lead-form | ✅ |
+| 43 | risk-scorer-replay | ✅ |
+| 44 | roy-polymorph-cn | ✅ |
+| 45 | rs-archive-clone | ✅ |
+| 46 | satb-audio-transcription | ✅ |
+| 47 | session-window-debug | ✅ |
+| 48 | shadow-relay | ✅ |
+| 49 | sglang-qwen-burst | ✅ |
+| 50 | sound-change-cascade | ✅ |
+| 51 | telecom-entity-resolution | ✅ |
+| 52 | vf2-speedup-networkx | ✅ |
+| 53 | vllm-deepseek-streaming | ✅ |
+| 54 | vpp-loss-divergence | ✅ |
+| 55 | wal-recovery-ordering | ✅ |
+| 56 | wdm-design | ✅ |
 
-## ❌ FAIL（10 题）
+## ❌ FAIL（8 题）
 
 已尝试,无计入成绩的 PASS run。
 
 | # | 题目 | 状态 |
 |---|------|------|
 | 1 | math-eval-grader | ❌ |
-| 2 | biped-contact-dynamics | ❌ |
-| 3 | formal-crypto | ❌ |
-| 4 | ks-solver-cpp | ❌ |
-| 5 | layout-config-recreation | ❌ |
-| 6 | ontology-kg-querying | ❌ |
-| 7 | retro-console-soc | ❌ |
-| 8 | takens-embedding-lean | ❌ |
-| 9 | uefi-bootkit | ❌ |
-| 10 | vba-userform-port | ❌ |
+| 2 | ks-solver-cpp | ❌ |
+| 3 | layout-config-recreation | ❌ |
+| 4 | ontology-kg-querying | ❌ |
+| 5 | retro-console-soc | ❌ |
+| 6 | takens-embedding-lean | ❌ |
+| 7 | uefi-bootkit | ❌ |
+| 8 | vba-userform-port | ❌ |
 
 ## ⛔ 无结果（2 题）
 
