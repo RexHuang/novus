@@ -2,7 +2,7 @@
 
 # TB4 Terminal-Bench 4.0 — Task-Level Results
 
-> Snapshot: **2026-11-23** · Score **56/66 = 84.8%**.
+> Snapshot: **2026-11-28** · Score **56/66 = 84.8%**. (Composition unchanged since 2026-11-23; re-verified 2026-11-28.)
 > Denominator = the official 66-task set; 64 tasks have verifier results, 2 GPU-only tasks produced no result on our (CPU-only) hardware.
 > Convention & methodology: see [BENCHMARKS.md](./BENCHMARKS.md) (简体中文: [BENCHMARKS.zh-CN.md](./BENCHMARKS.zh-CN.md)).
 

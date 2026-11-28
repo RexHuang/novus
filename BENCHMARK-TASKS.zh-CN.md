@@ -2,7 +2,7 @@
 
 # TB4 Terminal-Bench 4.0 — 题目级成绩清单
 
-> 快照:**2026-11-23** · 成绩 **56/66 = 84.8%**。
+> 快照:**2026-11-28** · 成绩 **56/66 = 84.8%**。(构成与 2026-11-23 版一致,2026-11-28 复核。)
 > 分母 = 官方 66 题;64 题已出分,2 道 GPU-only 题在我方(纯 CPU)硬件上无 result。
 > 口径与方法论详见 [BENCHMARKS.zh-CN.md](BENCHMARKS.zh-CN.md)(英文版 [BENCHMARK-TASKS.md](BENCHMARK-TASKS.md))。
 
